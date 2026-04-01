@@ -1,0 +1,451 @@
+openapi: 3.0.3
+info:
+  title: OA系统
+  description: |
+    阶段四：用户认证模块接口测试用例规范文档。
+    导入Apifox后可自动生成接口定义及测试用例，包含正常流程、异常流程、参数校验、权限控制等测试场景。
+  version: 1.0.0
+  contact:
+    name: OA System Team
+
+servers:
+  - url: http://localhost:8080/api
+    description: 本地开发环境（Spring Boot后端服务）
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: 认证管理
+    description: 用户登录、Token管理、当前用户信息查询
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - 认证管理
+      summary: 用户登录
+      description: |
+        **测试对象**: 登录接口（`/auth/login`）
+        **测试目的**: 验证不同凭据组合下的登录行为，包括成功登录、参数校验失败、认证失败等场景。
+        **前置条件**: 数据库中已存在测试用户（admin/admin123、manager/manager123、user/user123）。
+        **测试步骤**:
+        1. 构造登录请求体（username + password）
+        2. 发送POST请求到`/auth/login`
+        3. 根据场景断言响应状态码、响应体结构和字段值
+      operationId: authLogin
+      security: []
+      requestBody:
+        required: true
+        description: 登录请求参数
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              TC-LOGIN-001-admin正常登录:
+                summary: "【正常】admin登录"
+                description: 使用系统管理员账号登录，预期返回token及admin角色信息
+                value:
+                  username: "admin"
+                  password: "admin123"
+              TC-LOGIN-002-manager正常登录:
+                summary: "【正常】manager登录"
+                description: 使用部门经理账号登录，预期返回token及manager角色信息
+                value:
+                  username: "manager"
+                  password: "manager123"
+              TC-LOGIN-003-user正常登录:
+                summary: "【正常】普通员工登录"
+                description: 使用普通员工账号登录，预期返回token及employee角色信息
+                value:
+                  username: "user"
+                  password: "user123"
+              TC-LOGIN-004-用户名空:
+                summary: "【异常】用户名为空"
+                description: 用户名为空字符串，预期返回400参数校验失败
+                value:
+                  username: ""
+                  password: "admin123"
+              TC-LOGIN-005-密码空:
+                summary: "【异常】密码为空"
+                description: 密码为空字符串，预期返回400参数校验失败
+                value:
+                  username: "admin"
+                  password: ""
+              TC-LOGIN-006-用户名密码错误:
+                summary: "【异常】密码错误"
+                description: 用户名存在但密码错误，预期返回401认证失败
+                value:
+                  username: "admin"
+                  password: "wrongpassword"
+              TC-LOGIN-007-用户不存在:
+                summary: "【异常】用户不存在"
+                description: 用户名不存在，预期返回401认证失败
+                value:
+                  username: "notexists"
+                  password: "anypassword"
+      responses:
+        '200':
+          description: 登录成功，返回JWT Token及用户信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultLoginResponse'
+              examples:
+                TC-LOGIN-001-预期响应:
+                  summary: admin登录成功响应
+                  value:
+                    code: 200
+                    message: "success"
+                    data:
+                      token: "eyJhbGciOiJIUzI1NiJ9..."
+                      tokenType: "Bearer"
+                      expiresIn: 86400000
+                      user:
+                        id: 1
+                        username: "admin"
+                        name: "系统管理员"
+                        avatar: null
+                        role: "admin"
+                        roleLabel: "系统管理员"
+                    timestamp: 1711700000000
+        '400':
+          description: 参数校验失败（用户名或密码为空）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+              examples:
+                TC-LOGIN-004-预期响应:
+                  summary: 用户名为空响应
+                  value:
+                    code: 400
+                    message: "username: 用户名不能为空"
+                    data: null
+                    timestamp: 1711700000000
+                TC-LOGIN-005-预期响应:
+                  summary: 密码为空响应
+                  value:
+                    code: 400
+                    message: "password: 密码不能为空"
+                    data: null
+                    timestamp: 1711700000000
+        '401':
+          description: 认证失败（用户名或密码错误）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+              examples:
+                TC-LOGIN-006-预期响应:
+                  summary: 密码错误响应
+                  value:
+                    code: 401
+                    message: "用户名或密码错误"
+                    data: null
+                    timestamp: 1711700000000
+        '500':
+          description: 系统异常
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+              examples:
+                系统异常响应:
+                  summary: 系统异常
+                  value:
+                    code: 500
+                    message: "系统繁忙，请稍后再试"
+                    data: null
+                    timestamp: 1711700000000
+
+  /auth/info:
+    get:
+      tags:
+        - 认证管理
+      summary: 获取当前登录用户信息
+      description: |
+        **测试对象**: 获取当前用户信息接口（`/auth/info`）
+        **测试目的**: 验证携带有效Token可获取用户信息，无效/缺失Token被拒绝访问。
+        **前置条件**: 用户已完成登录并获取JWT Token。
+        **测试步骤**:
+        1. 构造请求头`Authorization: Bearer {token}`
+        2. 发送GET请求到`/auth/info`
+        3. 断言响应状态码、响应体结构与用户身份匹配
+        4. （异常场景）不携带Token或携带无效Token，断言返回401
+      operationId: authInfo
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: Bearer Token（从登录接口获取）
+          schema:
+            type: string
+          examples:
+            TC-INFO-001-有效Token:
+              summary: 有效Token示例
+              value: "Bearer eyJhbGciOiJIUzI1NiJ9..."
+            TC-INFO-002-无效Token:
+              summary: 无效Token示例
+              value: "Bearer invalid_token_here"
+            TC-INFO-003-缺失Token:
+              summary: 缺失Token
+              value: ""
+      responses:
+        '200':
+          description: 查询成功，返回当前登录用户详细信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultUserInfoResponse'
+              examples:
+                TC-INFO-001-预期响应:
+                  summary: admin用户详情
+                  value:
+                    code: 200
+                    message: "success"
+                    data:
+                      id: 1
+                      username: "admin"
+                      name: "系统管理员"
+                      email: "admin@oasystem.com"
+                      phone: "13800138001"
+                      avatar: null
+                      roleId: 1
+                      roleName: "admin"
+                      roleLabel: "系统管理员"
+                      deptId: 1
+                      status: 1
+                      createTime: "2024-01-01 10:00:00"
+                    timestamp: 1711700000000
+        '401':
+          description: 未授权（Token缺失、过期或无效）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+              examples:
+                TC-INFO-002-预期响应-无效Token:
+                  summary: Token无效
+                  value:
+                    code: 401
+                    message: "请先登录"
+                    data: null
+                    timestamp: 1711700000000
+                TC-INFO-003-预期响应-缺失Token:
+                  summary: 未携带Token（Spring Security默认403/401）
+                  value:
+                    code: 401
+                    message: "请先登录"
+                    data: null
+                    timestamp: 1711700000000
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 登录成功后获取的JWT Token，在请求头中以 `Authorization:Bearer {token}` 格式传递
+
+  schemas:
+    Result:
+      type: object
+      description: 统一响应封装
+      required:
+        - code
+        - message
+        - timestamp
+      properties:
+        code:
+          type: integer
+          description: 状态码（200成功，400参数错误，401未授权，403禁止访问，404不存在，500系统异常）
+          example: 200
+        message:
+          type: string
+          description: 响应消息
+          example: "success"
+        data:
+          description: 响应数据
+          nullable: true
+        timestamp:
+          type: integer
+          format: int64
+          description: 服务器返回时间戳（毫秒）
+          example: 1711700000000
+
+    ResultVoid:
+      type: object
+      description: 无数据响应
+      required:
+        - code
+        - message
+        - timestamp
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "success"
+        data:
+          type: "null"
+        timestamp:
+          type: integer
+          format: int64
+          example: 1711700000000
+
+    ResultLoginResponse:
+      type: object
+      description: 登录成功响应
+      required:
+        - code
+        - message
+        - timestamp
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "success"
+        data:
+          $ref: '#/components/schemas/LoginResponse'
+        timestamp:
+          type: integer
+          format: int64
+          example: 1711700000000
+
+    ResultUserInfoResponse:
+      type: object
+      description: 用户信息响应
+      required:
+        - code
+        - message
+        - timestamp
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "success"
+        data:
+          $ref: '#/components/schemas/UserInfoResponse'
+        timestamp:
+          type: integer
+          format: int64
+          example: 1711700000000
+
+    LoginRequest:
+      type: object
+      description: 登录请求DTO
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: 用户名
+          minLength: 1
+          example: "admin"
+        password:
+          type: string
+          description: 密码
+          minLength: 1
+          example: "admin123"
+
+    LoginResponse:
+      type: object
+      description: 登录响应DTO
+      properties:
+        token:
+          type: string
+          description: JWT访问令牌
+          example: "eyJhbGciOiJIUzI1NiJ9..."
+        tokenType:
+          type: string
+          description: Token类型
+          example: "Bearer"
+        expiresIn:
+          type: integer
+          format: int64
+          description: 有效时长（毫秒）
+          example: 86400000
+        user:
+          $ref: '#/components/schemas/LoginUserInfo'
+
+    LoginUserInfo:
+      type: object
+      description: 登录成功后返回的精简用户信息
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        username:
+          type: string
+          example: "admin"
+        name:
+          type: string
+          example: "系统管理员"
+        avatar:
+          type: string
+          nullable: true
+          example: null
+        role:
+          type: string
+          description: 角色标识
+          example: "admin"
+        roleLabel:
+          type: string
+          description: 角色显示名
+          example: "系统管理员"
+
+    UserInfoResponse:
+      type: object
+      description: 当前用户详细信息响应DTO
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        username:
+          type: string
+          example: "admin"
+        name:
+          type: string
+          example: "系统管理员"
+        email:
+          type: string
+          example: "admin@oasystem.com"
+        phone:
+          type: string
+          example: "13800138001"
+        avatar:
+          type: string
+          nullable: true
+          example: null
+        roleId:
+          type: integer
+          format: int64
+          example: 1
+        roleName:
+          type: string
+          example: "admin"
+        roleLabel:
+          type: string
+          example: "系统管理员"
+        deptId:
+          type: integer
+          format: int64
+          example: 1
+        status:
+          type: integer
+          description: 0=禁用，1=启用
+          example: 1
+        createTime:
+          type: string
+          description: 创建时间（yyyy-MM-dd HH:mm:ss）
+          example: "2024-01-01 10:00:00"
