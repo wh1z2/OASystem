@@ -5,6 +5,7 @@ import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -83,6 +84,43 @@ public class JwtTokenUtil {
             log.warn("JWT验证失败: {}", e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * 验证Token并返回具体错误信息
+     * @return null表示验证通过，否则返回错误信息（token_expired/token_invalid）
+     */
+    public String validateTokenWithReason(String token) {
+        if (!StringUtils.hasText(token)) {
+            return "token_missing";
+        }
+        try {
+            Claims claims = parseTokenForValidation(token);
+            if (claims == null) {
+                return "token_invalid";
+            }
+            if (isTokenExpired(claims)) {
+                return "token_expired";
+            }
+            return null; // 验证通过
+        } catch (ExpiredJwtException e) {
+            log.warn("JWT已过期");
+            return "token_expired";
+        } catch (Exception e) {
+            log.warn("JWT验证失败: {}", e.getMessage());
+            return "token_invalid";
+        }
+    }
+
+    /**
+     * 解析Token（用于验证，会抛出异常）
+     */
+    private Claims parseTokenForValidation(String token) {
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     /**
