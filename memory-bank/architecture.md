@@ -151,27 +151,43 @@ oa-backend/
 │   ├── OaSystemApplication.java      # 应用入口
 │   ├── config/                        # 配置类
 │   │   ├── StateMachineConfig.java   # COLA状态机配置
-│   │   ├── SecurityConfig.java       # Spring Security配置
-│   │   └── JwtConfig.java            # JWT配置
+│   │   └── SecurityConfig.java       # Spring Security配置
 │   ├── controller/                    # 控制器层 (API接口)
+│   │   └── AuthController.java       # 认证控制器 (登录 / 用户信息)
 │   ├── service/                       # 业务逻辑层
+│   │   ├── AuthService.java          # 认证服务接口
 │   │   └── impl/                      # 服务实现
+│   │       └── AuthServiceImpl.java  # 认证服务实现
 │   ├── mapper/                        # 数据访问层 (MyBatis-Plus)
+│   │   ├── UserMapper.java           # 用户查询 (含 JOIN 角色)
+│   │   └── RoleMapper.java           # 角色基础 CRUD
 │   ├── entity/                        # 实体类 (数据库映射)
 │   ├── dto/                           # 数据传输对象
+│   │   ├── Result.java               # 统一响应封装
+│   │   ├── LoginRequest.java         # 登录请求 DTO
+│   │   ├── LoginResponse.java        # 登录响应 DTO
+│   │   └── UserInfoResponse.java     # 当前用户详情 DTO
 │   ├── enums/                         # 枚举类
 │   │   ├── ApprovalStatus.java       # 审批状态枚举
 │   │   └── ApprovalEvent.java        # 审批事件枚举
+│   ├── security/                      # 安全认证相关
+│   │   ├── JwtAuthenticationFilter.java  # JWT 请求过滤器
+│   │   ├── UserDetailsImpl.java      # Spring Security 用户封装
+│   │   └── UserDetailsServiceImpl.java   # 用户加载服务
 │   ├── statemachine/                  # 状态机相关
 │   │   ├── ApprovalStateMachineHelper.java  # 条件与动作
 │   │   └── ApprovalContext.java      # 状态机上下文
 │   └── util/                          # 工具类
-│       └── JwtTokenUtil.java         # JWT工具
+│       └── JwtTokenUtil.java         # JWT 生成 / 解析 / 校验工具
 ├── src/main/resources/
 │   ├── application.yml               # 主配置
 │   ├── application-dev.yml           # 开发环境配置
 │   └── mapper/                        # XML映射文件
 ├── src/test/java/                     # 测试代码
+│   └── com/oasystem/util/
+│       └── JwtTokenUtilTest.java     # JWT 工具单元测试
+├── docs/api-test/                     # API 测试文档
+│   └── auth-api-tests.openapi.yaml   # 认证模块 Apifox 测试用例
 └── pom.xml                            # Maven配置
 ```
 
@@ -186,7 +202,7 @@ oa-backend/
 | `dto/` | 接口请求/响应的数据对象 | 与entity分离，按需定义 |
 | `enums/` | 状态、事件等枚举定义 | 包含中文描述字段 |
 | `config/` | 框架配置、第三方组件配置 | 按组件分文件 |
-### 3.4 数据库文件 (阶段二已创建)
+### 3.6 数据库文件 (阶段二已创建)
 
 | 文件 | 路径 | 作用 |
 |------|------|------|
@@ -209,7 +225,52 @@ mysql -u root -p < database/init.sql
 
 ---
 
-### 3.4 后端基础文件 (阶段三创建)
+### 3.4 阶段四新增文件 (用户认证模块)
+
+| 文件 | 路径 | 作用 |
+|------|------|------|
+| **Security 配置与过滤器** |||
+| `SecurityConfig.java` | `oa-backend/config/SecurityConfig.java` | Spring Security 核心配置类。禁用 CSRF、设置 STATELESS 会话策略、放行 `/auth/**` 公开端点、其余请求需认证，并将 `JwtAuthenticationFilter` 注册到过滤器链中 |
+| `JwtAuthenticationFilter.java` | `oa-backend/security/JwtAuthenticationFilter.java` | 继承 `OncePerRequestFilter`。从请求头 `Authorization: Bearer <token>` 中提取 JWT，调用 `JwtTokenUtil` 校验有效性，校验成功后构造 `UsernamePasswordAuthenticationToken` 并写入 `SecurityContextHolder`，使后续业务层可通过 `SecurityContext` 获取当前用户 |
+| `UserDetailsImpl.java` | `oa-backend/security/UserDetailsImpl.java` | 实现 Spring Security 的 `UserDetails` 接口。封装 `User` 实体及从 `sys_role.permissions` 解析出的权限列表 (`GrantedAuthority`)，供框架进行认证和鉴权判断 |
+| `UserDetailsServiceImpl.java` | `oa-backend/security/UserDetailsServiceImpl.java` | 实现 `UserDetailsService` 接口。通过 `UserMapper.selectByUsername` 加载用户（含角色 JOIN），解析角色表中的 `permissions` JSON 数组字段为权限字符串列表，最终包装为 `UserDetailsImpl` 返回 |
+| **JWT 工具类** |||
+| `JwtTokenUtil.java` | `oa-backend/util/JwtTokenUtil.java` | 基于 `io.jsonwebtoken` 的 JWT 工具类。提供 `generateToken(userId, username)` 生成令牌、`validateToken(token)` 校验有效性、`getUserIdFromToken` / `getUsernameFromToken` 提取声明、`getExpirationDate` 计算剩余毫秒数。密钥从 `jwt.secret` 读取，默认有效期 30 分钟 |
+| **数据访问层 (Mapper)** |||
+| `UserMapper.java` | `oa-backend/mapper/UserMapper.java` | 扩展 `BaseMapper<User>`。定义 `@Select` 注解方法 `selectByUsername`，通过 LEFT JOIN `sys_role` 一次性查询用户及其角色信息，用于登录时加载用户 |
+| `RoleMapper.java` | `oa-backend/mapper/RoleMapper.java` | 扩展 `BaseMapper<Role>`，为角色数据提供基础 CRUD |
+| **数据传输对象 (DTO)** |||
+| `LoginRequest.java` | `oa-backend/dto/LoginRequest.java` | 登录请求 DTO。字段 `username`、`password` 均带 `@NotBlank` 校验 |
+| `LoginResponse.java` | `oa-backend/dto/LoginResponse.java` | 登录成功响应 DTO。包含 `token`、`tokenType`(Bearer)、`expiresIn`(毫秒) 及嵌套的精简用户信息 (`LoginUserInfo`) |
+| `UserInfoResponse.java` | `oa-backend/dto/UserInfoResponse.java` | 当前用户详情响应 DTO。返回 `id`、`username`、`name`、`email`、`phone`、`avatar`、`roleId`、`roleName`、`roleLabel`、`deptId`、`status`、`createTime` 等完整字段 |
+| **业务逻辑层 (Service)** |||
+| `AuthService.java` | `oa-backend/service/AuthService.java` | 认证服务接口。定义 `login(LoginRequest)` 和 `getCurrentUserInfo()` |
+| `AuthServiceImpl.java` | `oa-backend/service/impl/AuthServiceImpl.java` | 认证服务实现。`login` 方法调用 `AuthenticationManager` 执行用户名密码认证，成功后生成 JWT 并组装 `LoginResponse`；`getCurrentUserInfo` 从 `SecurityContextHolder` 获取 `UserDetailsImpl` 并转换为 `UserInfoResponse` |
+| **控制器层 (Controller)** |||
+| `AuthController.java` | `oa-backend/controller/AuthController.java` | 认证控制器。提供 `POST /auth/login`（无需认证）和 `GET /auth/info`（需认证）两个端点，统一返回 `Result<T>` 格式 |
+| **测试与文档** |||
+| `auth-api-tests.openapi.yaml` | `oa-backend/docs/api-test/auth-api-tests.openapi.yaml` | OpenAPI 3.0.3 接口测试文档，含多个测试场景的 example。可直接导入 Apifox 生成测试用例 |
+| `JwtTokenUtilTest.java` | `oa-backend/test/java/com/oasystem/util/JwtTokenUtilTest.java` | JWT 工具单元测试。覆盖正常 token 生成解析、短时效 token 过期验证、非法 token 拒绝、剩余时间计算等场景 |
+
+### 3.5 阶段五新增文件 (COLA状态机集成)
+
+| 文件 | 路径 | 作用 |
+|------|------|------|
+| **状态机配置** |||
+| `StateMachineConfig.java` | `oa-backend/config/StateMachineConfig.java` | COLA 状态机核心配置类。定义6条状态流转规则（草稿→审批中→已通过/已打回→草稿），每条规则配置条件检查和动作执行。状态机ID为 `approvalStateMachine` |
+| **状态机上下文与辅助类** |||
+| `ApprovalContext.java` | `oa-backend/statemachine/ApprovalContext.java` | 状态机上下文类，封装状态转换所需数据：审批工单实体、操作命令、当前操作人ID |
+| `ApprovalStateMachineHelper.java` | `oa-backend/statemachine/ApprovalStateMachineHelper.java` | 状态机条件和动作实现类。包含3个条件检查方法（表单完整性、审批权限、申请人身份）和5个动作方法（提交、通过、拒绝、重新编辑、撤销），每个动作自动记录审批历史 |
+| **数据传输对象 (DTO)** |||
+| `ApprovalActionCmd.java` | `oa-backend/dto/ApprovalActionCmd.java` | 审批操作命令 DTO。封装审批意见、下一审批人ID，用于审批操作接口请求参数 |
+| **数据访问层 (Mapper)** |||
+| `ApprovalMapper.java` | `oa-backend/mapper/ApprovalMapper.java` | 审批工单 Mapper。提供按状态、申请人、当前审批人查询，支持待办列表查询 |
+| `ApprovalHistoryMapper.java` | `oa-backend/mapper/ApprovalHistoryMapper.java` | 审批历史 Mapper。提供按工单ID、审批人查询，支持已办列表查询 |
+| **单元测试** |||
+| `StateMachineConfigTest.java` | `oa-backend/test/config/StateMachineConfigTest.java` | 状态机集成测试（13个测试用例）。验证6条正常流转规则和6条非法/权限不足场景 |
+| `ApprovalStateMachineTest.java` | `oa-backend/test/statemachine/ApprovalStateMachineTest.java` | 状态机辅助类单元测试（12个测试用例）。验证3个条件检查和5个动作执行 |
+
+### 3.6 后端基础文件 (阶段三创建)
 
 | 文件 | 路径 | 作用 |
 |------|------|------|
@@ -234,7 +295,7 @@ mysql -u root -p < database/init.sql
 | `application-dev.yml` | `oa-backend/resources/application-dev.yml` | 开发环境配置，包含MySQL连接、Hikari连接池、MyBatis-Plus配置 |
 | `pom.xml` | `oa-backend/pom.xml` | Maven构建配置，定义依赖版本和构建插件 |
 
-### 3.5 实体类详细说明
+### 3.7 实体类详细说明
 
 #### User 实体类
 ```
@@ -299,11 +360,77 @@ oa_form_template 表的Java映射 - 表单设计器存储
 
 ### 4.2 认证方案
 
-- 使用 JWT Token 进行身份认证
-- Token 有效期默认 24 小时
-- 请求头格式: `Authorization: Bearer <token>`
+**阶段四已落地实现**：基于 Spring Security 6.x + JWT (jjwt 0.12.3) 的无状态认证架构。
 
-### 4.3 状态机上下文
+| 组件 | 实现类 | 作用 |
+|------|--------|------|
+| 安全框架 | Spring Security 6.x | 负责请求拦截、认证鉴权、会话管理 |
+| Token 机制 | JWT (jjwt 0.12.3) | 用户登录成功后颁发 JWT，后续请求携带该令牌进行身份校验 |
+| 过滤器 | `JwtAuthenticationFilter` | 在每个请求到达 Controller 前，从 `Authorization: Bearer <token>` 中提取并校验 JWT，将认证信息写入 `SecurityContextHolder` |
+| 用户加载 | `UserDetailsServiceImpl` | 通过 `UserMapper.selectByUsername` 查询用户（JOIN 角色表），将 `sys_role.permissions` JSON 数组解析为权限列表，封装为 `UserDetailsImpl` |
+| 安全配置 | `SecurityConfig` | 禁用 CSRF、设置 STATELESS 会话策略、放行 `/auth/**`（登录接口），其余端点需认证 |
+
+**Token 规范**:
+- 算法: HS256
+- 默认有效期: 30 分钟（由 `jwt.expiration` 配置，单位毫秒）
+- 请求头格式: `Authorization: Bearer <token>`
+- 载荷声明: `userId`, `username`, `sub`(userId), `iat`, `exp`
+
+**认证流程**:
+1. 客户端 `POST /auth/login` 提交用户名密码
+2. `AuthService` 调用 `AuthenticationManager` 进行用户名密码校验
+3. 校验成功后，`JwtTokenUtil` 生成 JWT
+4. 客户端在后续请求头中携带 `Authorization: Bearer <token>`
+5. `JwtAuthenticationFilter` 校验 token 有效性，将用户及权限信息注入 `SecurityContext`
+6. 控制器/业务层通过 `SecurityContextHolder` 获取当前登录用户
+
+### 4.3 状态机设计 (COLA StateMachine 5.0)
+
+**阶段五已落地实现**：基于阿里巴巴 COLA 状态机 5.0 的审批流程引擎。
+
+| 组件 | 实现类 | 作用 |
+|------|--------|------|
+| 状态机配置 | `StateMachineConfig` | 定义状态流转规则，构建状态机 Bean |
+| 状态定义 | `ApprovalStatus` 枚举 | 5种状态：DRAFT/PROCESSING/APPROVED/RETURNED/REVOKED |
+| 事件定义 | `ApprovalEvent` 枚举 | 5种事件：SUBMIT/APPROVE/REJECT/REEDIT/REVOKE |
+| 上下文 | `ApprovalContext` | 传递业务数据：工单实体、操作命令、操作人ID |
+| 条件检查 | `ApprovalStateMachineHelper` | 检查表单完整性、审批权限、申请人身份 |
+| 动作执行 | `ApprovalStateMachineHelper` | 执行状态变更、更新审批人、记录历史 |
+
+**状态流转图**:
+```
+DRAFT --SUBMIT--> PROCESSING --APPROVE--> APPROVED
+                          --REJECT--> RETURNED
+                          --REVOKE--> DRAFT
+
+APPROVED --REEDIT--> DRAFT
+RETURNED --REEDIT--> DRAFT
+```
+
+**状态机特点**:
+- 条件不满足时返回源状态（COLA 5.0 行为）
+- 每个合法转换自动记录审批历史
+- 审批通过/拒绝/撤销时清空当前审批人
+
+**使用示例**:
+```java
+@Autowired
+private StateMachine<ApprovalStatus, ApprovalEvent, ApprovalContext> stateMachine;
+
+// 执行状态转换
+ApprovalStatus newStatus = stateMachine.fireEvent(
+    currentStatus,           // 当前状态
+    ApprovalEvent.APPROVE,   // 触发事件
+    new ApprovalContext(approval, cmd, operatorId)  // 上下文
+);
+
+if (newStatus == currentStatus) {
+    // 转换失败（条件不满足或非法流转）
+    throw new BusinessException("当前状态不允许执行该操作");
+}
+```
+
+### 4.4 状态机上下文
 
 ```java
 @Data
@@ -332,4 +459,4 @@ public class ApprovalContext {
 
 ---
 
-*最后更新: 2026-03-27 (阶段三完成：后端基础框架搭建，包含5个实体类、4个枚举类、统一响应、全局异常处理、完整配置)*
+*最后更新: 2026-04-01 (阶段五完成：COLA状态机集成已落地，包含6条状态流转规则、条件检查、动作执行、历史记录，共25个单元测试全部通过)*

@@ -112,13 +112,102 @@
 
 ---
 
+### 阶段四：用户认证模块实现 ✅
+
+**完成日期**: 2026-04-01
+
+**执行内容**:
+1. ✅ 引入并配置 Spring Security 6.x + JWT (jjwt 0.12.3)
+2. ✅ 编写 `SecurityConfig`：STATELESS 会话、放行 `/auth/**`、注册 JWT Filter
+3. ✅ 实现 JWT 认证过滤器 `JwtAuthenticationFilter`：提取并校验 `Authorization: Bearer <token>`
+4. ✅ 实现 `UserDetailsImpl` / `UserDetailsServiceImpl`：加载用户并解析 `sys_role.permissions` JSON 为权限列表
+5. ✅ 编写 `JwtTokenUtil`：JWT 的生成、解析、验证、过期时间计算
+6. ✅ 编写 Mapper 层：
+   - `UserMapper`：含 `selectByUsername`（LEFT JOIN `sys_role`）
+   - `RoleMapper`：基础 BaseMapper
+7. ✅ 编写 DTO：
+   - `LoginRequest`：@NotBlank 校验
+   - `LoginResponse`：返回 token、tokenType、expiresIn、精简用户信息
+   - `UserInfoResponse`：返回当前用户完整信息
+8. ✅ 编写 `AuthService` / `AuthServiceImpl` / `AuthController`：
+   - `POST /auth/login`：认证并返回 JWT
+   - `GET /auth/info`：获取当前登录用户信息
+9. ✅ 修复启动问题并验证：
+   - 升级 MyBatis-Plus 为 `3.5.10.1` + `mybatis-plus-spring-boot3-starter`，解决 `factoryBeanObjectType` 不兼容
+   - 移除 JDBC URL 中的 `characterEncoding=utf8mb4`，解决 MySQL 连接异常
+10. ✅ 编写 Apifox 可导入的 OpenAPI 测试文档 `auth-api-tests.openapi.yaml`
+11. ✅ 编写 `JwtTokenUtilTest` 单元测试，支持生成短时效 token 用于过期场景验证
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| 配置 | `config/SecurityConfig.java` |
+| Security | `security/JwtAuthenticationFilter.java`, `security/UserDetailsImpl.java`, `security/UserDetailsServiceImpl.java` |
+| 工具 | `util/JwtTokenUtil.java` |
+| Mapper | `mapper/UserMapper.java`, `mapper/RoleMapper.java` |
+| DTO | `dto/LoginRequest.java`, `dto/LoginResponse.java`, `dto/UserInfoResponse.java` |
+| Service | `service/AuthService.java`, `service/impl/AuthServiceImpl.java` |
+| Controller | `controller/AuthController.java` |
+| 测试文档 | `docs/api-test/auth-api-tests.openapi.yaml` |
+| 单元测试 | `test/java/com/oasystem/util/JwtTokenUtilTest.java` |
+| 配置修复 | `pom.xml`, `resources/application-dev.yml` |
+
+**验证状态**: ✅ 已通过 Apifox 接口测试验证（登录正向/异常、Token 有效期、获取当前用户信息）
+
+---
+
+### 阶段五：COLA状态机集成 ✅
+
+**完成日期**: 2026-04-01
+
+**执行内容**:
+1. ✅ 创建状态机上下文 `ApprovalContext`：封装审批工单、操作命令、操作人ID
+2. ✅ 实现状态机辅助类 `ApprovalStateMachineHelper`：
+   - 条件检查：`checkFormComplete`（表单完整性）、`checkApproverPermission`（审批权限）、`checkIsApplicant`（申请人身份）
+   - 状态转换动作：`doSubmit`、`doApprove`、`doReject`、`doReedit`、`doRevoke`
+   - 历史记录保存：每次状态变更自动记录到 `oa_approval_history` 表
+3. ✅ 配置状态机 `StateMachineConfig`：
+   - 状态流转规则（6条转换规则）：
+     - DRAFT --SUBMIT--> PROCESSING
+     - PROCESSING --APPROVE--> APPROVED
+     - PROCESSING --REJECT--> RETURNED
+     - PROCESSING --REVOKE--> DRAFT
+     - APPROVED --REEDIT--> DRAFT
+     - RETURNED --REEDIT--> DRAFT
+   - 每条规则配置条件和动作
+4. ✅ 创建审批操作命令 DTO `ApprovalActionCmd`：封装审批意见、下一审批人ID
+5. ✅ 创建 Mapper 层：`ApprovalMapper`、`ApprovalHistoryMapper`
+6. ✅ 编写单元测试：
+   - `ApprovalStateMachineTest`（12个测试用例）：测试条件和动作
+   - `StateMachineConfigTest`（13个测试用例）：测试完整状态流转（含非法流转和权限检查）
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| 状态机配置 | `config/StateMachineConfig.java` |
+| 状态机上下文 | `statemachine/ApprovalContext.java` |
+| 状态机辅助类 | `statemachine/ApprovalStateMachineHelper.java` |
+| DTO | `dto/ApprovalActionCmd.java` |
+| Mapper | `mapper/ApprovalMapper.java`, `mapper/ApprovalHistoryMapper.java` |
+| 单元测试 | `test/statemachine/ApprovalStateMachineTest.java`, `test/config/StateMachineConfigTest.java` |
+
+**测试覆盖**:
+- ✅ 正常状态流转（6条规则全部验证）
+- ✅ 非法状态流转（返回源状态）
+- ✅ 条件不满足场景（表单不完整、无权限、非申请人）
+- ✅ 状态转换动作（状态更新、审批人变更、历史记录生成）
+
+**验证状态**: ✅ 已通过单元测试验证（25个测试全部通过），可以进入阶段六
+
+---
+
 ## 待完成阶段
 
 - [x] 阶段一：开发环境验证 ✅
 - [x] 阶段二：数据库设计与初始化 ✅
 - [x] 阶段三：后端基础框架搭建 ✅
-- [ ] 阶段四：用户认证模块实现 ⏳
-- [ ] 阶段五：COLA状态机集成
+- [x] 阶段四：用户认证模块实现 ✅
+- [x] 阶段五：COLA状态机集成 ✅
 - [ ] 阶段六：审批流程核心功能
 - [ ] 阶段七：前端接口对接
 - [ ] 阶段八：表单设计器实现
@@ -128,4 +217,4 @@
 
 ---
 
-*最后更新: 2026-03-27 (阶段三已完成：后端基础框架搭建完成，包含所有实体类和基础配置)*
+*最后更新: 2026-04-01 (阶段四已完成：用户认证模块实现完成，包含 Spring Security + JWT 认证、登录/用户信息接口、Apifox 测试文档及单元测试)*
