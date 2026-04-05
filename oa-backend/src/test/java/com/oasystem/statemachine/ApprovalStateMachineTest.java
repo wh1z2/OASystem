@@ -6,6 +6,7 @@ import com.oasystem.enums.ApprovalEvent;
 import com.oasystem.enums.ApprovalStatus;
 import com.oasystem.entity.ApprovalHistory;
 import com.oasystem.mapper.ApprovalHistoryMapper;
+import com.oasystem.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
@@ -30,10 +32,40 @@ class ApprovalStateMachineTest {
     @MockBean
     private ApprovalHistoryMapper approvalHistoryMapper;
 
+    @MockBean
+    private UserMapper userMapper;
+
     @BeforeEach
     void setUp() {
         // 模拟历史记录保存
         when(approvalHistoryMapper.insert(any(ApprovalHistory.class))).thenReturn(1);
+
+        // 模拟用户查询 - 200L 是审批人，有审批权限
+        com.oasystem.entity.User approverUser = new com.oasystem.entity.User();
+        approverUser.setId(200L);
+        approverUser.setRoleId(3L);
+        approverUser.setRoleName("employee");
+        approverUser.setDeptId(1L);
+        approverUser.setPermissions("[\"approval:execute\"]");
+        when(userMapper.selectByIdWithRole(200L)).thenReturn(approverUser);
+
+        // 999L 是普通用户，无特殊权限
+        com.oasystem.entity.User normalUser = new com.oasystem.entity.User();
+        normalUser.setId(999L);
+        normalUser.setRoleId(3L);
+        normalUser.setRoleName("employee");
+        normalUser.setDeptId(2L);
+        normalUser.setPermissions("[]");
+        when(userMapper.selectByIdWithRole(999L)).thenReturn(normalUser);
+
+        // 100L 是申请人
+        com.oasystem.entity.User applicantUser = new com.oasystem.entity.User();
+        applicantUser.setId(100L);
+        applicantUser.setRoleId(3L);
+        applicantUser.setRoleName("employee");
+        applicantUser.setDeptId(1L);
+        applicantUser.setPermissions("[]");
+        when(userMapper.selectByIdWithRole(100L)).thenReturn(applicantUser);
     }
 
     /**

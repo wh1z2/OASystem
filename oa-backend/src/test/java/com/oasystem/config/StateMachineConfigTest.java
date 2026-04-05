@@ -7,6 +7,7 @@ import com.oasystem.enums.ApprovalEvent;
 import com.oasystem.enums.ApprovalStatus;
 import com.oasystem.entity.ApprovalHistory;
 import com.oasystem.mapper.ApprovalHistoryMapper;
+import com.oasystem.mapper.UserMapper;
 import com.oasystem.statemachine.ApprovalContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,10 +33,32 @@ class StateMachineConfigTest {
     @MockBean
     private ApprovalHistoryMapper approvalHistoryMapper;
 
+    @MockBean
+    private UserMapper userMapper;
+
     @BeforeEach
     void setUp() {
         // 模拟历史记录保存
         when(approvalHistoryMapper.insert(any(ApprovalHistory.class))).thenReturn(1);
+
+        // 模拟用户查询（权限检查需要）
+        // 200L - 管理员用户（有全部权限）
+        com.oasystem.entity.User adminUser = new com.oasystem.entity.User();
+        adminUser.setId(200L);
+        adminUser.setRoleId(1L);
+        adminUser.setRoleName("admin");
+        adminUser.setDeptId(1L);
+        adminUser.setPermissions("[\"all\", \"approval:execute\", \"approval:execute:all\"]");
+        when(userMapper.selectByIdWithRole(200L)).thenReturn(adminUser);
+
+        // 999L - 普通员工（无代审批权限）- 用于测试无权限场景
+        com.oasystem.entity.User normalUser = new com.oasystem.entity.User();
+        normalUser.setId(999L);
+        normalUser.setRoleId(3L);
+        normalUser.setRoleName("employee");
+        normalUser.setDeptId(2L);
+        normalUser.setPermissions("[]"); // 无权限
+        when(userMapper.selectByIdWithRole(999L)).thenReturn(normalUser);
     }
 
     private Approval createApproval(Long id, ApprovalStatus status, Long applicantId, Long currentApproverId) {

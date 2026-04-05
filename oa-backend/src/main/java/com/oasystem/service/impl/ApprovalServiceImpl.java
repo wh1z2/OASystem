@@ -1,6 +1,8 @@
 package com.oasystem.service.impl;
 
 import com.alibaba.cola.statemachine.StateMachine;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.TypeReference;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.oasystem.dto.*;
@@ -17,6 +19,8 @@ import com.oasystem.mapper.ApprovalMapper;
 import com.oasystem.mapper.UserMapper;
 import com.oasystem.service.ApprovalService;
 import com.oasystem.statemachine.ApprovalContext;
+import com.oasystem.statemachine.ApprovalPermissionResult;
+import com.oasystem.statemachine.ApprovalStateMachineHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,10 +45,61 @@ public class ApprovalServiceImpl implements ApprovalService {
     private final ApprovalHistoryMapper approvalHistoryMapper;
     private final UserMapper userMapper;
     private final StateMachine<ApprovalStatus, ApprovalEvent, ApprovalContext> stateMachine;
+    private final ApprovalStateMachineHelper stateMachineHelper;
+
+    /**
+     * 审批执行权限
+     */
+    private static final String PERMISSION_APPROVAL_EXECUTE = "approval:execute";
+
+    /**
+     * 检查用户是否拥有审批权限
+     *
+     * @param user 用户实体
+     * @return true表示有权限
+     */
+    private boolean hasApprovalPermission(User user) {
+        if (user == null || !StringUtils.hasText(user.getPermissions())) {
+            return false;
+        }
+        try {
+            List<String> permissions = JSON.parseObject(
+                    user.getPermissions(),
+                    new TypeReference<>() {}
+            );
+            return permissions != null &&
+                    (permissions.contains("all") || permissions.contains(PERMISSION_APPROVAL_EXECUTE));
+        } catch (Exception e) {
+            log.error("解析用户权限失败：userId={}, permissions={}", user.getId(), user.getPermissions(), e);
+            return false;
+        }
+    }
+
+    /**
+     * 校验指定的审批人是否有审批权限
+     *
+     * @param approverId 审批人ID
+     * @throws BusinessException 审批人不存在或无权限时抛出
+     */
+    private void validateApproverPermission(Long approverId) {
+        if (approverId == null) {
+            return;
+        }
+        User approver = userMapper.selectByIdWithRole(approverId);
+        if (approver == null) {
+            throw new BusinessException("指定的审批人不存在");
+        }
+        if (!hasApprovalPermission(approver)) {
+            throw new BusinessException("指定的审批人无审批权限，请选择管理员或部门经理作为审批人");
+        }
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long create(ApprovalCreateRequest request, Long applicantId) {
+        // 校验指定审批人权限
+        validateApproverPermission(request.getCurrentApproverId());
+
         Approval approval = new Approval();
         approval.setTitle(request.getTitle());
         approval.setType(request.getType());
@@ -73,13 +128,16 @@ public class ApprovalServiceImpl implements ApprovalService {
             throw new BusinessException("只有草稿状态的工单可以编辑");
         }
 
+        // 如果更新了审批人，校验新审批人权限
+        if (request.getCurrentApproverId() != null) {
+            validateApproverPermission(request.getCurrentApproverId());
+            approval.setCurrentApproverId(request.getCurrentApproverId());
+        }
+
         approval.setTitle(request.getTitle());
         approval.setPriority(request.getPriority());
         approval.setContent(request.getContent());
         approval.setFormData(request.getFormData());
-        if (request.getCurrentApproverId() != null) {
-            approval.setCurrentApproverId(request.getCurrentApproverId());
-        }
 
         int rows = approvalMapper.updateById(approval);
         log.info("更新审批工单成功：id={}", id);
@@ -188,18 +246,44 @@ public class ApprovalServiceImpl implements ApprovalService {
             throw new BusinessException("只有审批中的工单可以执行审批操作");
         }
 
+        // 获取当前用户完整信息（包含角色、部门）
+        User currentUser = userMapper.selectByIdWithRole(operatorId);
+        if (currentUser == null) {
+            throw new BusinessException("当前用户不存在");
+        }
+
         ApprovalStatus currentStatus = ApprovalStatus.fromCode(approval.getStatus());
         ApprovalContext context = new ApprovalContext(approval, cmd, operatorId);
+
+        // 综合权限检查（整合方案A和方案B）
+        ApprovalPermissionResult permissionResult =
+                stateMachineHelper.checkApproverPermissionDetail(context);
+
+        if (!permissionResult.isGranted()) {
+            throw new BusinessException(permissionResult.getMessage());
+        }
+
+        // 将权限检查结果放入上下文，供后续状态机动作使用
+        context.setPermissionResult(permissionResult);
 
         ApprovalStatus newStatus = stateMachine.fireEvent(currentStatus, ApprovalEvent.APPROVE, context);
 
         if (newStatus == currentStatus) {
-            throw new BusinessException("无权执行审批操作，您不是当前审批人");
+            throw new BusinessException("状态转换失败");
         }
 
         // 更新工单
         approvalMapper.updateById(approval);
-        log.info("审批通过成功：id={}, operatorId={}", id, operatorId);
+
+        // 记录代审批信息到日志（如为代审批）
+        if (permissionResult.isProxyApproval()) {
+            log.info("代审批完成：工单ID={}, 代审批人={}, 原审批人={}, 类型={}",
+                    id, operatorId, permissionResult.getOriginalApproverId(),
+                    permissionResult.getApprovalTypeLabel());
+        }
+
+        log.info("审批通过成功：id={}, operatorId={}, approvalType={}",
+                id, operatorId, permissionResult.getApprovalTypeCode());
         return true;
     }
 
@@ -216,18 +300,44 @@ public class ApprovalServiceImpl implements ApprovalService {
             throw new BusinessException("只有审批中的工单可以执行审批操作");
         }
 
+        // 获取当前用户完整信息（包含角色、部门）
+        User currentUser = userMapper.selectByIdWithRole(operatorId);
+        if (currentUser == null) {
+            throw new BusinessException("当前用户不存在");
+        }
+
         ApprovalStatus currentStatus = ApprovalStatus.fromCode(approval.getStatus());
         ApprovalContext context = new ApprovalContext(approval, cmd, operatorId);
+
+        // 综合权限检查（整合方案A和方案B）
+        ApprovalPermissionResult permissionResult =
+                stateMachineHelper.checkApproverPermissionDetail(context);
+
+        if (!permissionResult.isGranted()) {
+            throw new BusinessException(permissionResult.getMessage());
+        }
+
+        // 将权限检查结果放入上下文，供后续状态机动作使用
+        context.setPermissionResult(permissionResult);
 
         ApprovalStatus newStatus = stateMachine.fireEvent(currentStatus, ApprovalEvent.REJECT, context);
 
         if (newStatus == currentStatus) {
-            throw new BusinessException("无权执行审批操作，您不是当前审批人");
+            throw new BusinessException("状态转换失败");
         }
 
         // 更新工单
         approvalMapper.updateById(approval);
-        log.info("审批拒绝成功：id={}, operatorId={}", id, operatorId);
+
+        // 记录代审批信息到日志（如为代审批）
+        if (permissionResult.isProxyApproval()) {
+            log.info("代审批拒绝完成：工单ID={}, 代审批人={}, 原审批人={}, 类型={}",
+                    id, operatorId, permissionResult.getOriginalApproverId(),
+                    permissionResult.getApprovalTypeLabel());
+        }
+
+        log.info("审批拒绝成功：id={}, operatorId={}, approvalType={}",
+                id, operatorId, permissionResult.getApprovalTypeCode());
         return true;
     }
 
@@ -332,10 +442,17 @@ public class ApprovalServiceImpl implements ApprovalService {
     public List<ApprovalHistoryResponse> getHistory(Long approvalId) {
         List<ApprovalHistory> histories = approvalHistoryMapper.selectByApprovalId(approvalId);
 
-        // 获取所有相关用户ID
+        // 获取所有相关用户ID（包括审批人和原审批人）
         Set<Long> userIds = histories.stream()
                 .map(ApprovalHistory::getApproverId)
                 .collect(Collectors.toSet());
+
+        // 收集原审批人ID（代审批情况）
+        Set<Long> originalApproverIds = histories.stream()
+                .filter(h -> h.getOriginalApproverId() != null)
+                .map(ApprovalHistory::getOriginalApproverId)
+                .collect(Collectors.toSet());
+        userIds.addAll(originalApproverIds);
 
         // 批量查询用户信息
         Map<Long, String> userNameMap = Collections.emptyMap();
@@ -423,6 +540,13 @@ public class ApprovalServiceImpl implements ApprovalService {
         // 设置操作类型名称
         ApprovalEvent event = ApprovalEvent.fromCode(history.getAction());
         response.setActionName(event != null ? event.getLabel() : "");
+
+        // 设置代审批相关信息（权限系统优化新增）
+        response.setIsProxy(history.getIsProxy());
+        response.setApprovalType(history.getApprovalType());
+        response.setOriginalApproverId(history.getOriginalApproverId());
+        response.setOriginalApproverName(userNameMap.getOrDefault(history.getOriginalApproverId(), ""));
+        response.setProxyReason(history.getProxyReason());
 
         return response;
     }

@@ -49,4 +49,31 @@ public class ApprovalHistoryResponse {
      * 操作时间
      */
     private LocalDateTime createTime;
+
+    // ========== 代审批相关字段（权限系统优化新增）==========
+
+    /**
+     * 审批类型：DIRECT直接审批/PROXY_ADMIN管理员代审批/PROXY_MANAGER经理代审批
+     */
+    private String approvalType;
+
+    /**
+     * 是否为代审批：0否 1是
+     */
+    private Integer isProxy;
+
+    /**
+     * 原指定审批人ID（代审批时记录）
+     */
+    private Long originalApproverId;
+
+    /**
+     * 原指定审批人姓名
+     */
+    private String originalApproverName;
+
+    /**
+     * 代审批原因/备注
+     */
+    private String proxyReason;
 }

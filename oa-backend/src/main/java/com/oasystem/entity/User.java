@@ -1,6 +1,7 @@
 package com.oasystem.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -71,4 +72,27 @@ public class User {
      * 更新时间
      */
     private LocalDateTime updateTime;
+
+    // ========== 非数据库字段（关联查询时填充）==========
+
+    /**
+     * 角色标识（非持久化字段）
+     * 用于接收 selectByIdWithRole 查询结果
+     */
+    @TableField(exist = false)
+    private String roleName;
+
+    /**
+     * 角色显示名（非持久化字段）
+     * 用于接收 selectByIdWithRole 查询结果
+     */
+    @TableField(exist = false)
+    private String roleLabel;
+
+    /**
+     * 角色权限JSON（非持久化字段）
+     * 用于接收 selectByIdWithRole 查询结果
+     */
+    @TableField(exist = false)
+    private String permissions;
 }
