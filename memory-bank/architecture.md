@@ -115,7 +115,62 @@ architecture.md (架构解释)
 
 **说明**: 一个工单可配置多个审批人，但只要其中一人审批，工单状态即发生流转。暂不支持会签（多人同时审批通过才流转）。
 
-### 2.6 数据语言规范
+### 2.6 权限系统设计 (4级权限层级)
+
+**决策**: 实现4级审批权限层级，支持代审批场景
+
+**权限层级定义**:
+```
+Level 1: 直接审批 (DIRECT)
+  └─ 当前用户是被指定的审批人
+  └─ 需要权限: approval:execute
+
+Level 2: 管理员代审批 (PROXY_ADMIN)
+  └─ 当前用户是系统管理员(role=admin)
+  └─ 需要权限: approval:execute:all
+  └─ 可审批全系统所有工单
+
+Level 3: 部门经理代审批 (PROXY_MANAGER)
+  └─ 当前用户是部门经理(role=manager)
+  └─ 需要权限: approval:execute:dept
+  └─ 只能审批本部门(dept_id相同)的工单
+
+Level 4: 无权限 (DENIED)
+  └─ 不满足以上任一条件
+  └─ 操作被拒绝，返回权限不足提示
+```
+
+**设计理由**:
+- 灵活性：支持正常审批流程和紧急情况下的代审批
+- 可追溯：代审批操作在历史记录中明确标识，包含原审批人信息
+- 安全性：部门经理只能代审批本部门工单，管理员可全系统代审批
+- 审计合规：代审批场景记录审批类型和原因，满足审计要求
+
+**相关枚举**:
+| 审批类型 | 代码 | 说明 | 是否代审批 |
+|---------|------|------|-----------|
+| DIRECT | 1 | 直接审批 | 否 |
+| PROXY_ADMIN | 2 | 管理员代审批 | 是 |
+| PROXY_MANAGER | 3 | 部门经理代审批 | 是 |
+
+### 2.7 审批人指定权限校验
+
+**决策**: 在指定审批人时校验其权限，而非在执行审批时校验
+
+**校验点**:
+1. **创建工单时** (`ApprovalServiceImpl.create`): 校验 `currentApproverId` 是否有 `approval:execute` 权限
+2. **更新工单时** (`ApprovalServiceImpl.update`): 如果更换审批人，校验新审批人权限
+3. **状态机提交时** (`ApprovalStateMachineHelper.doSubmit`): 校验 `nextApproverId` 权限
+
+**设计理由**:
+- 前置校验：在指定环节就阻止无权限用户被指定，避免后续流程卡死
+- 简化执行逻辑：执行审批时无需再次校验被指定人的权限
+- 权限一致性：确保所有被指定为审批人的用户都有审批权限
+- 业务合理性：普通员工(employee)不应被指定为审批人
+
+**异常提示**: "指定的审批人无审批权限，请选择管理员或部门经理作为审批人"
+
+### 2.8 数据语言规范
 
 **决策**: 业务数据使用中文，技术术语使用英文
 
@@ -269,6 +324,28 @@ mysql -u root -p < database/init.sql
 | **单元测试** |||
 | `StateMachineConfigTest.java` | `oa-backend/test/config/StateMachineConfigTest.java` | 状态机集成测试（13个测试用例）。验证6条正常流转规则和6条非法/权限不足场景 |
 | `ApprovalStateMachineTest.java` | `oa-backend/test/statemachine/ApprovalStateMachineTest.java` | 状态机辅助类单元测试（12个测试用例）。验证3个条件检查和5个动作执行 |
+
+### 3.6 阶段六新增文件 (审批流程核心功能)
+
+| 文件 | 路径 | 作用 |
+|------|------|------|
+| **业务逻辑层 (Service)** |||
+| `ApprovalService.java` | `oa-backend/service/ApprovalService.java` | 审批服务接口。定义工单CRUD（创建、更新、删除、查询）、状态流转（提交、审批通过/拒绝、撤销、重新编辑）、列表查询（待办、已办、我的申请）、审批历史查询 |
+| `ApprovalServiceImpl.java` | `oa-backend/service/impl/ApprovalServiceImpl.java` | 审批服务实现。集成COLA状态机执行状态流转，实现审批人权限校验（创建/更新时校验指定审批人），封装审批历史DTO转换，支持分页查询 |
+| **控制器层 (Controller)** |||
+| `ApprovalController.java` | `oa-backend/controller/ApprovalController.java` | 审批控制器。提供14个REST端点：工单CRUD、状态流转操作（提交、审批、拒绝、撤销、重新编辑）、列表查询（待办、已办、我的申请）、审批历史查询。所有接口统一返回 `Result<T>` 格式 |
+| **数据传输对象 (DTO)** |||
+| `ApprovalCreateRequest.java` | `oa-backend/dto/ApprovalCreateRequest.java` | 创建工单请求DTO。包含标题、类型、优先级、内容、表单数据、指定审批人ID |
+| `ApprovalUpdateRequest.java` | `oa-backend/dto/ApprovalUpdateRequest.java` | 更新工单请求DTO。仅允许更新草稿状态工单，包含可修改字段 |
+| `ApprovalQuery.java` | `oa-backend/dto/ApprovalQuery.java` | 工单查询条件DTO。继承分页参数，支持按标题、类型、状态、申请人筛选 |
+| `ApprovalDetailResponse.java` | `oa-backend/dto/ApprovalDetailResponse.java` | 工单详情响应DTO。包含完整工单信息及枚举字段的中文名称映射（typeName、statusName、priorityName） |
+| `ApprovalHistoryResponse.java` | `oa-backend/dto/ApprovalHistoryResponse.java` | 审批历史响应DTO。包含操作人信息、操作类型、审批意见、时间，以及代审批相关信息（isProxy、approvalType、originalApproverId、proxyReason） |
+| `PageResult.java` | `oa-backend/dto/PageResult.java` | 统一分页响应封装。包含当前页数据列表、总记录数、当前页码、每页大小 |
+| **权限系统优化** |||
+| `ApprovalPermissionResult.java` | `oa-backend/statemachine/ApprovalPermissionResult.java` | 权限检查结果封装类。记录权限是否通过、审批类型（DIRECT/PROXY_ADMIN/PROXY_MANAGER）、原审批人ID（代审批场景）、提示消息。支持代审批场景的数据传递 |
+| `ApprovalActionType.java` | `oa-backend/enums/ApprovalActionType.java` | 审批类型枚举。定义三种审批方式：DIRECT(直接审批)、PROXY_ADMIN(管理员代审批)、PROXY_MANAGER(部门经理代审批)，用于审计追踪 |
+| **测试文档** |||
+| `approval-api-tests.openapi.yaml` | `oa-backend/docs/api-test/approval-api-tests.openapi.yaml` | 审批模块OpenAPI测试文档（v1.1.0）。包含14个接口的详细定义、4级权限层级说明、代审批场景示例、多级权限测试用例，可直接导入Apifox |
 
 ### 3.6 后端基础文件 (阶段三创建)
 
@@ -442,6 +519,69 @@ public class ApprovalContext {
 }
 ```
 
+### 4.5 权限系统设计 (阶段六实现)
+
+**4级权限层级架构**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      审批权限检查流程                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Step 1: 是否是被指定的审批人?                                │
+│     ├─ 是 → 有 approval:execute 权限?                        │
+│     │         ├─ 是 → ✅ Level 1: 直接审批 (DIRECT)           │
+│     │         └─ 否 → ❌ 拒绝："您没有审批权限"                │
+│     └─ 否 → 继续 Step 2                                      │
+│                                                             │
+│  Step 2: 是否是管理员(role=admin)?                            │
+│     ├─ 是 → 有 approval:execute:all 权限?                    │
+│     │         ├─ 是 → ✅ Level 2: 管理员代审批 (PROXY_ADMIN)   │
+│     │         └─ 否 → 继续 Step 3                            │
+│     └─ 否 → 继续 Step 3                                      │
+│                                                             │
+│  Step 3: 是否是部门经理(role=manager)?                        │
+│     ├─ 是 → 有 approval:execute:dept 权限?                   │
+│     │         ├─ 是 → 申请人和经理同部门?                     │
+│     │         │         ├─ 是 → ✅ Level 3: 经理代审批         │
+│     │         │         │              (PROXY_MANAGER)        │
+│     │         │         └─ 否 → ❌ 拒绝："只能审批本部门工单"   │
+│     │         └─ 否 → 继续 Step 4                            │
+│     └─ 否 → 继续 Step 4                                      │
+│                                                             │
+│  Step 4: ❌ Level 4: 无权限 (DENIED)                          │
+│          "无权执行审批操作，您不是当前审批人"                   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**核心实现类**:
+
+| 组件 | 实现类 | 作用 |
+|------|--------|------|
+| 权限检查 | `ApprovalStateMachineHelper.checkApproverPermissionDetail()` | 执行4级权限检查，返回权限结果 |
+| 结果封装 | `ApprovalPermissionResult` | 封装权限检查结果，包含审批类型、原审批人ID、提示消息 |
+| 审批类型 | `ApprovalActionType` 枚举 | 定义 DIRECT(1)、PROXY_ADMIN(2)、PROXY_MANAGER(3) |
+| 历史记录 | `ApprovalHistory` 实体扩展 | 新增 is_proxy、approval_type、original_approver_id 字段 |
+
+**代审批审计追踪**:
+
+当执行代审批时，系统会：
+1. 在审批历史中记录 `is_proxy=1` 标识
+2. 记录 `approval_type`（2=管理员代审批，3=部门经理代审批）
+3. 记录 `original_approver_id`（原指定的审批人）
+4. 在审批意见前追加标识，如 `"[管理员代审批] 同意采购"`
+5. 输出审计日志：`[代审批审计] 工单ID=X, 代审批人ID=Y, 原审批人ID=Z...`
+
+**审批人权限校验**:
+
+在以下场景会校验被指定审批人的权限：
+- 创建工单时 (`POST /approvals`): 校验 `currentApproverId` 是否有 `approval:execute` 权限
+- 更新工单时 (`PUT /approvals/{id}`): 如果更换审批人，校验新审批人权限
+- 提交工单时 (`POST /approvals/{id}/submit`): 如果指定 `nextApproverId`，校验其权限
+
+校验失败抛出 `BusinessException`: "指定的审批人无审批权限，请选择管理员或部门经理作为审批人"
+
 ---
 
 ## 5. 开发规范
@@ -459,4 +599,4 @@ public class ApprovalContext {
 
 ---
 
-*最后更新: 2026-04-01 (阶段五完成：COLA状态机集成已落地，包含6条状态流转规则、条件检查、动作执行、历史记录，共25个单元测试全部通过)*
+*最后更新: 2026-04-05 (阶段六完成：审批流程核心功能已落地，包含工单CRUD、状态流转、4级权限层级、代审批支持、审批人权限校验、14个REST端点、OpenAPI测试文档)*

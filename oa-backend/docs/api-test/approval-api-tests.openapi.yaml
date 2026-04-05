@@ -2,10 +2,23 @@ openapi: 3.0.3
 info:
   title: OA系统 - 审批流程API测试用例
   description: |
-    阶段六：审批流程核心功能接口测试用例规范文档。
+    阶段六+权限优化：审批流程核心功能接口测试用例规范文档（v1.1）。
     包含审批工单的创建、查询、提交、审批、重新编辑、撤销等完整流程测试。
     覆盖正常流程、异常流程、权限控制、状态机校验等测试场景。
-  version: 1.0.0
+
+    ## 权限系统优化说明（v1.1）
+
+    ### 4级审批权限层级
+    1. **直接审批** (DIRECT): 指定审批人审批自己的工单
+    2. **管理员代审批** (PROXY_ADMIN): 系统管理员(role=admin)拥有`approval:execute:all`权限时，可代审批所有部门工单
+    3. **部门经理代审批** (PROXY_MANAGER): 部门经理(role=manager)拥有`approval:execute:dept`权限时，可代审批本部门工单
+    4. **无权限**: 普通员工不能代审批
+
+    ### 代审批审计追踪
+    - 历史记录中标记`isProxy`和`approvalType`字段
+    - 记录`originalApproverId`原指定审批人信息
+    - 审批意见自动附加代审批标识，如"[管理员代审批] 同意"
+  version: 1.1.0
   contact:
     name: OA System Team
 
@@ -20,9 +33,18 @@ tags:
   - name: 审批管理
     description: 审批工单的创建、查询、更新、删除等基础CRUD操作
   - name: 审批流程
-    description: 审批工单的提交、审批、重新编辑、撤销等流程操作
+    description: |
+      审批工单的提交、审批、重新编辑、撤销等流程操作。
+      支持4级审批权限：直接审批 > 管理员代审批 > 部门经理代审批 > 无权限
   - name: 审批查询
     description: 待办列表、已办列表、审批历史等查询接口
+  - name: 权限说明
+    description: |
+      审批权限系统说明：
+      - 直接审批：指定审批人可审批自己的工单
+      - 管理员代审批：需 role=admin + permission=approval:execute:all，可审批所有部门
+      - 部门经理代审批：需 role=manager + permission=approval:execute:dept，限本部门
+      - 代审批信息通过历史记录中的 approvalType/isProxy/originalApproverId 字段追踪
 
 paths:
   # ==================== 审批基础CRUD接口 ====================
@@ -388,20 +410,6 @@ paths:
                   content: "测试内容"
       responses:
         '200':
-          description: 更新成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResultBoolean'
-              examples:
-                TC-UPDATE-001-预期响应:
-                  summary: 更新成功响应
-                  value:
-                    code: 200
-                    message: "success"
-                    data: true
-                    timestamp: 1711700000000
-        '200':
           description: |
             接口调用成功（HTTP 200），业务结果通过code字段区分：
             - code=200: 更新成功
@@ -569,12 +577,15 @@ paths:
       description: |
         **测试对象**: 审批通过接口（`POST /approvals/{id}/approve`）
         **测试目的**: 验证审批人可以执行审批通过操作，状态变为已通过。
-        **前置条件**: 工单状态为审批中；当前用户是该工单的当前审批人。
+        **前置条件**: 工单状态为审批中；当前用户是该工单的当前审批人或有代审批权限。
         **业务规则**:
-        - 只有当前审批人可以执行审批操作
+        - **直接审批**: 指定审批人可以执行审批操作
+        - **管理员代审批**: 系统管理员(role=admin)拥有`approval:execute:all`权限时，可以代审批所有部门的工单
+        - **部门经理代审批**: 部门经理(role=manager)拥有`approval:execute:dept`权限时，可以代审批本部门的工单
         - 只有审批中的工单可以审批
         - 审批通过后状态变为已通过
-        - 记录审批意见到历史表
+        - 记录审批意见到历史表（代审批时会标记审批类型和原审批人）
+        - **权限层级**: 直接审批 > 管理员代审批 > 部门经理代审批 > 无权限
       operationId: approveApproval
       parameters:
         - name: id
@@ -593,8 +604,8 @@ paths:
               $ref: '#/components/schemas/ApprovalActionCmd'
             examples:
               TC-APPROVE-001-正常审批通过:
-                summary: "【正常】审批通过"
-                description: 审批人审批通过，填写审批意见
+                summary: "【正常】审批通过-直接审批"
+                description: 指定审批人审批通过，填写审批意见
                 value:
                   comment: "同意请假，安排好工作交接即可"
               TC-APPROVE-002-无审批意见:
@@ -603,9 +614,19 @@ paths:
                 value: {}
               TC-APPROVE-003-非审批人审批:
                 summary: "【异常】非审批人尝试审批"
-                description: 非当前审批人尝试审批
+                description: 非当前审批人且无代审批权限的用户尝试审批
                 value:
                   comment: "同意"
+              TC-APPROVE-004-管理员代审批:
+                summary: "【正常】管理员代审批"
+                description: 系统管理员代审批非本人指派的工单
+                value:
+                  comment: "管理员代审批同意"
+              TC-APPROVE-005-经理本部门代审批:
+                summary: "【正常】部门经理代审批（同部门）"
+                description: 部门经理代审批本部门的工单
+                value:
+                  comment: "经理代审批同意"
       responses:
         '200':
           description: 审批成功
@@ -629,7 +650,7 @@ paths:
                 $ref: '#/components/schemas/ResultVoid'
               examples:
                 TC-APPROVE-003-预期响应:
-                  summary: 非审批人不能审批
+                  summary: 非审批人无权限审批
                   value:
                     code: 403
                     message: "无权执行审批操作，您不是当前审批人"
@@ -642,6 +663,13 @@ paths:
                     message: "只有审批中的工单可以执行审批操作"
                     data: null
                     timestamp: 1711700000000
+                TC-APPROVE-006-预期响应-经理跨部门审批:
+                  summary: 部门经理不能审批非本部门工单
+                  value:
+                    code: 403
+                    message: "您只能审批本部门的工单"
+                    data: null
+                    timestamp: 1711700000000
 
   /approvals/{id}/reject:
     post:
@@ -651,12 +679,15 @@ paths:
       description: |
         **测试对象**: 审批拒绝接口（`POST /approvals/{id}/reject`）
         **测试目的**: 验证审批人可以执行审批拒绝操作，状态变为已打回。
-        **前置条件**: 工单状态为审批中；当前用户是该工单的当前审批人。
+        **前置条件**: 工单状态为审批中；当前用户是该工单的当前审批人或有代审批权限。
         **业务规则**:
-        - 只有当前审批人可以执行审批操作
+        - **直接审批**: 指定审批人可以执行审批操作
+        - **管理员代审批**: 系统管理员(role=admin)拥有`approval:execute:all`权限时，可以代审批所有部门的工单
+        - **部门经理代审批**: 部门经理(role=manager)拥有`approval:execute:dept`权限时，可以代审批本部门的工单
         - 只有审批中的工单可以审批
         - 审批拒绝后状态变为已打回
         - 建议填写拒绝原因
+        - 代审批时会标记审批类型和原审批人到历史记录
       operationId: rejectApproval
       parameters:
         - name: id
@@ -675,14 +706,24 @@ paths:
               $ref: '#/components/schemas/ApprovalActionCmd'
             examples:
               TC-REJECT-001-正常审批拒绝:
-                summary: "【正常】审批拒绝"
-                description: 审批人拒绝，填写拒绝原因
+                summary: "【正常】审批拒绝-直接审批"
+                description: 指定审批人拒绝，填写拒绝原因
                 value:
                   comment: "请假时间过长，建议缩短为2天"
               TC-REJECT-002-无拒绝原因:
                 summary: "【正常】审批拒绝（无原因）"
                 description: 审批拒绝但不填写原因
                 value: {}
+              TC-REJECT-004-管理员代审批拒绝:
+                summary: "【正常】管理员代审批拒绝"
+                description: 系统管理员代审批拒绝非本人指派的工单
+                value:
+                  comment: "管理员代审批：材料不齐全，请补充"
+              TC-REJECT-005-经理跨部门代审批拒绝:
+                summary: "【异常】部门经理不能跨部门代审批拒绝"
+                description: 部门经理尝试代审批拒绝非本部门工单（应失败）
+                value:
+                  comment: "经理代审批拒绝"
       responses:
         '200':
           description: 拒绝成功
@@ -706,10 +747,24 @@ paths:
                 $ref: '#/components/schemas/ResultVoid'
               examples:
                 TC-REJECT-003-预期响应:
-                  summary: 非审批人不能拒绝
+                  summary: 非审批人无权限拒绝
                   value:
                     code: 403
                     message: "无权执行审批操作，您不是当前审批人"
+                    data: null
+                    timestamp: 1711700000000
+                TC-REJECT-006-预期响应-经理跨部门代审批拒绝:
+                  summary: 部门经理不能跨部门代审批拒绝
+                  value:
+                    code: 403
+                    message: "您只能审批本部门的工单"
+                    data: null
+                    timestamp: 1711700000000
+                TC-REJECT-007-预期响应-非审批中状态:
+                  summary: 非审批中状态不能拒绝
+                  value:
+                    code: 403
+                    message: "只有审批中的工单可以执行审批操作"
                     data: null
                     timestamp: 1711700000000
 
@@ -1085,7 +1140,7 @@ paths:
                 $ref: '#/components/schemas/ResultListApprovalHistoryResponse'
               examples:
                 TC-HISTORY-001-预期响应:
-                  summary: 审批历史响应
+                  summary: 审批历史响应-直接审批
                   value:
                     code: 200
                     message: "success"
@@ -1098,6 +1153,11 @@ paths:
                         actionName: "提交"
                         comment: null
                         createTime: "2024-03-10T10:00:00"
+                        approvalType: "DIRECT"
+                        isProxy: 0
+                        originalApproverId: null
+                        originalApproverName: null
+                        proxyReason: null
                       - id: 2002
                         approvalId: 1001
                         approverId: 2
@@ -1106,6 +1166,44 @@ paths:
                         actionName: "同意"
                         comment: "同意请假，安排好工作交接即可"
                         createTime: "2024-03-10T14:30:00"
+                        approvalType: "DIRECT"
+                        isProxy: 0
+                        originalApproverId: null
+                        originalApproverName: null
+                        proxyReason: null
+                    timestamp: 1711700000000
+                TC-HISTORY-002-预期响应-代审批:
+                  summary: 审批历史响应-管理员代审批
+                  value:
+                    code: 200
+                    message: "success"
+                    data:
+                      - id: 2001
+                        approvalId: 1002
+                        approverId: 3
+                        approverName: "李四"
+                        action: 0
+                        actionName: "提交"
+                        comment: null
+                        createTime: "2024-03-10T09:00:00"
+                        approvalType: "DIRECT"
+                        isProxy: 0
+                        originalApproverId: null
+                        originalApproverName: null
+                        proxyReason: null
+                      - id: 2002
+                        approvalId: 1002
+                        approverId: 1
+                        approverName: "系统管理员"
+                        action: 1
+                        actionName: "同意"
+                        comment: "[管理员代审批] 同意请假申请"
+                        createTime: "2024-03-10T10:30:00"
+                        approvalType: "PROXY_ADMIN"
+                        isProxy: 1
+                        originalApproverId: 2
+                        originalApproverName: "张经理"
+                        proxyReason: "管理员代审批"
                     timestamp: 1711700000000
 
 components:
@@ -1336,7 +1434,7 @@ components:
 
     ApprovalHistoryResponse:
       type: object
-      description: 审批历史记录响应DTO
+      description: 审批历史记录响应DTO（v1.1 新增代审批字段）
       properties:
         id:
           type: integer
@@ -1351,7 +1449,7 @@ components:
         approverId:
           type: integer
           format: int64
-          description: 审批人ID
+          description: 审批人ID（实际执行审批操作的用户）
           example: 2
         approverName:
           type: string
@@ -1367,13 +1465,44 @@ components:
           example: "同意"
         comment:
           type: string
-          description: 审批意见
+          description: 审批意见（代审批时会自动附加标识，如"[管理员代审批] 同意"）
           example: "同意请假，安排好工作交接即可"
         createTime:
           type: string
           format: date-time
           description: 操作时间
           example: "2024-03-10T14:30:00"
+        # ========== 代审批相关字段（权限系统优化 v1.1 新增）==========
+        approvalType:
+          type: string
+          description: |
+            审批类型：
+            - DIRECT：直接审批（指定审批人审批自己的工单）
+            - PROXY_ADMIN：管理员代审批
+            - PROXY_MANAGER：部门经理代审批
+          enum: ["DIRECT", "PROXY_ADMIN", "PROXY_MANAGER"]
+          example: "DIRECT"
+        isProxy:
+          type: integer
+          description: 是否为代审批（0=否，1=是）
+          enum: [0, 1]
+          example: 0
+        originalApproverId:
+          type: integer
+          format: int64
+          description: 原指定审批人ID（代审批时记录，用于审计追踪）
+          example: 2
+          nullable: true
+        originalApproverName:
+          type: string
+          description: 原指定审批人姓名（代审批时记录）
+          example: "张经理"
+          nullable: true
+        proxyReason:
+          type: string
+          description: 代审批原因/备注
+          example: "管理员代审批"
+          nullable: true
 
     PageResult:
       type: object
@@ -1442,3 +1571,38 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ApprovalHistoryResponse'
+
+    # ==================== 权限系统相关Schema ====================
+    ApprovalActionType:
+      type: string
+      description: |
+        审批操作类型枚举（权限系统 v1.1 新增）
+        - DIRECT: 直接审批（指定审批人审批自己的工单）
+        - PROXY_ADMIN: 管理员代审批（系统管理员代审批所有部门工单）
+        - PROXY_MANAGER: 部门经理代审批（部门经理代审批本部门工单）
+      enum:
+        - "DIRECT"
+        - "PROXY_ADMIN"
+        - "PROXY_MANAGER"
+      example: "DIRECT"
+
+    PermissionCheckResult:
+      type: object
+      description: 权限检查结果（内部使用，用于调试权限问题）
+      properties:
+        granted:
+          type: boolean
+          description: 是否授予权限
+          example: true
+        message:
+          type: string
+          description: 权限检查结果消息
+          example: "直接审批"
+        approvalActionType:
+          $ref: '#/components/schemas/ApprovalActionType'
+        originalApproverId:
+          type: integer
+          format: int64
+          description: 原指定审批人ID（代审批时）
+          example: 2
+          nullable: true

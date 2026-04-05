@@ -201,6 +201,77 @@
 
 ---
 
+### 阶段六：审批流程核心功能 ✅
+
+**完成日期**: 2026-04-05
+
+**执行内容**:
+1. ✅ 实现审批 Service 层 (`ApprovalServiceImpl`)：
+   - 工单 CRUD：创建、更新、删除、查询
+   - 状态流转：提交、审批通过、审批拒绝、撤销、重新编辑
+   - 列表查询：待办列表、已办列表、我的申请
+   - 审批历史：历史记录查询及DTO转换
+
+2. ✅ 权限系统优化（4级权限层级）：
+   - Level 1 - 直接审批：被指定的审批人可直接审批
+   - Level 2 - 管理员代审批：系统管理员可审批全系统工单
+   - Level 3 - 部门经理代审批：部门经理可审批本部门工单
+   - Level 4 - 无权限：无审批权限，操作被拒绝
+   - 实现 `ApprovalPermissionResult` 封装权限检查结果
+   - 代审批支持：支持管理员/部门经理代审批，并在历史记录中标识
+
+3. ✅ 审批人权限校验（方案B实施）：
+   - 创建工单时校验指定审批人是否有 `approval:execute` 权限
+   - 更新工单时校验新审批人权限
+   - 状态机提交动作中校验 `nextApproverId` 权限
+   - 普通员工无法被指定为审批人（抛出业务异常）
+
+4. ✅ 审批历史增强（审计追踪）：
+   - 新增字段：`approval_type`(审批类型), `is_proxy`(是否代审批), `original_approver_id`(原审批人)
+   - 新增 `ApprovalActionType` 枚举：DIRECT(直接审批)、PROXY_ADMIN(管理员代审批)、PROXY_MANAGER(部门经理代审批)
+   - 代审批时在审批意见中追加标识（如 `[管理员代审批] 同意`）
+
+5. ✅ 实现审批 Controller 层 (`ApprovalController`)：
+   - `POST /approvals` - 创建工单
+   - `PUT /approvals/{id}` - 更新工单
+   - `DELETE /approvals/{id}` - 删除工单
+   - `GET /approvals/{id}` - 查询详情
+   - `GET /approvals` - 列表查询
+   - `POST /approvals/{id}/submit` - 提交工单
+   - `POST /approvals/{id}/approve` - 审批通过
+   - `POST /approvals/{id}/reject` - 审批拒绝
+   - `POST /approvals/{id}/reedit` - 重新编辑
+   - `POST /approvals/{id}/revoke` - 撤销申请
+   - `GET /approvals/todo` - 待办列表
+   - `GET /approvals/done` - 已办列表
+   - `GET /approvals/my` - 我的申请
+   - `GET /approvals/{id}/history` - 审批历史
+
+6. ✅ 更新 OpenAPI 测试文档：
+   - 版本升级到 1.1.0，添加权限系统说明
+   - 新增 `ApprovalActionType` 枚举定义
+   - 更新 `ApprovalHistoryResponse` 增加代审批字段
+   - 添加多级权限测试场景示例（直接审批、代审批、权限不足）
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| Service 接口 | `service/ApprovalService.java` |
+| Service 实现 | `service/impl/ApprovalServiceImpl.java` |
+| Controller | `controller/ApprovalController.java` |
+| DTO | `dto/ApprovalCreateRequest.java`, `dto/ApprovalUpdateRequest.java`, `dto/ApprovalQuery.java`, `dto/ApprovalDetailResponse.java`, `dto/ApprovalHistoryResponse.java`, `dto/PageResult.java` |
+| 权限结果封装 | `statemachine/ApprovalPermissionResult.java` |
+| 审批类型枚举 | `enums/ApprovalActionType.java` |
+| 测试文档 | `docs/api-test/approval-api-tests.openapi.yaml` |
+
+**测试覆盖**:
+- ✅ 单元测试：状态机相关测试（25个测试全部通过）
+- ✅ 冒烟测试：通过 Apifox 完成接口测试
+
+**验证状态**: ✅ 审批核心功能已实现，权限系统优化完成，冒烟测试通过，可以进入阶段七
+
+---
+
 ## 待完成阶段
 
 - [x] 阶段一：开发环境验证 ✅
@@ -208,7 +279,7 @@
 - [x] 阶段三：后端基础框架搭建 ✅
 - [x] 阶段四：用户认证模块实现 ✅
 - [x] 阶段五：COLA状态机集成 ✅
-- [ ] 阶段六：审批流程核心功能
+- [x] 阶段六：审批流程核心功能 ✅
 - [ ] 阶段七：前端接口对接
 - [ ] 阶段八：表单设计器实现
 - [ ] 阶段九：用户与角色管理
@@ -217,4 +288,4 @@
 
 ---
 
-*最后更新: 2026-04-01 (阶段四已完成：用户认证模块实现完成，包含 Spring Security + JWT 认证、登录/用户信息接口、Apifox 测试文档及单元测试)*
+*最后更新: 2026-04-05 (阶段六已完成：审批流程核心功能实现完成，包含工单CRUD、状态流转、4级权限层级、代审批、审批人权限校验、OpenAPI测试文档，冒烟测试通过)*
