@@ -81,16 +81,19 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
-import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const approvalStore = useApprovalStore()
-const authStore = useAuthStore()
 
 const pendingApprovals = computed(() => approvalStore.pendingApprovals)
+
+// 页面加载时获取待办列表
+onMounted(() => {
+  approvalStore.fetchTodoList()
+})
 
 function getPriorityLabel(priority) {
   const labels = {
@@ -105,11 +108,17 @@ function goToDetail(id) {
   router.push(`/approval/detail/${id}`)
 }
 
-function quickApprove(id) {
-  approvalStore.approveApproval(id, '快速审批通过', authStore.currentUser?.name)
+async function quickApprove(id) {
+  const result = await approvalStore.approveApproval(id, '快速审批通过')
+  if (result.success) {
+    await approvalStore.fetchTodoList()
+  }
 }
 
-function quickReject(id) {
-  approvalStore.rejectApproval(id, '快速审批拒绝', authStore.currentUser?.name)
+async function quickReject(id) {
+  const result = await approvalStore.rejectApproval(id, '快速审批拒绝')
+  if (result.success) {
+    await approvalStore.fetchTodoList()
+  }
 }
 </script>

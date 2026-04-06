@@ -19,7 +19,10 @@
             </div>
             <span :class="[
               'badge',
-              approval.status === 'pending' ? 'badge-warning' : approval.status === 'approved' ? 'badge-success' : 'badge-danger'
+              approval.status === 'processing' ? 'badge-warning' :
+                approval.status === 'approved' ? 'badge-success' :
+                  approval.status === 'returned' ? 'badge-danger' :
+                    approval.status === 'draft' ? 'bg-gray-100 text-gray-600' : 'bg-gray-100 text-gray-600'
             ]">
               {{ getStatusLabel(approval.status) }}
             </span>
@@ -58,7 +61,7 @@
         <div class="card">
           <h3 class="text-lg font-semibold text-gray-900 mb-6">审批历史</h3>
           <div class="space-y-4">
-            <div v-for="(record, index) in approval.history" :key="index" 
+            <div v-for="(record, index) in approvalHistory" :key="index"
                  class="flex items-start gap-4">
               <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
                 <span class="text-sm font-medium text-primary-600">{{ record.approver.charAt(0) }}</span>
@@ -84,7 +87,7 @@
       <div class="space-y-6">
         <div class="card">
           <h3 class="text-lg font-semibold text-gray-900 mb-4">审批操作</h3>
-          <div v-if="approval.status === 'pending'" class="space-y-4">
+          <div v-if="approval.status === 'processing'" class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">审批意见</label>
               <textarea v-model="comment" class="input h-24 resize-none" placeholder="请输入审批意见..."></textarea>
@@ -144,19 +147,28 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
-import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const approvalStore = useApprovalStore()
-const authStore = useAuthStore()
 
 const comment = ref('')
+const loading = ref(false)
 
-const approval = computed(() => approvalStore.getApprovalById(route.params.id))
+const approval = computed(() => approvalStore.currentApproval)
+const approvalHistory = computed(() => approvalStore.approvalHistory)
+
+// 页面加载时获取详情和历史
+onMounted(async () => {
+  const id = route.params.id
+  loading.value = true
+  await approvalStore.fetchApprovalById(id)
+  await approvalStore.fetchApprovalHistory(id)
+  loading.value = false
+})
 
 function getTypeLabel(type) {
   const labels = {
@@ -180,31 +192,38 @@ function getPriorityLabel(priority) {
 
 function getStatusLabel(status) {
   const labels = {
-    pending: '待审批',
+    draft: '草稿',
+    processing: '审批中',
     approved: '已通过',
-    rejected: '已拒绝'
+    returned: '已打回',
+    revoked: '已撤销'
   }
   return labels[status] || status
 }
 
 function getActionLabel(action) {
   const labels = {
-    submit: '提交',
-    approve: '通过',
-    reject: '拒绝'
+    SUBMIT: '提交',
+    APPROVE: '通过',
+    REJECT: '拒绝',
+    REEDIT: '重新编辑',
+    REVOKE: '撤销'
   }
   return labels[action] || action
 }
 
-function handleApprove(status) {
+async function handleApprove(action) {
   if (!approval.value) return
-  
-  if (status === 'approved') {
-    approvalStore.approveApproval(approval.value.id, comment.value, authStore.currentUser?.name)
+
+  let result
+  if (action === 'approved') {
+    result = await approvalStore.approveApproval(approval.value.id, comment.value)
   } else {
-    approvalStore.rejectApproval(approval.value.id, comment.value, authStore.currentUser?.name)
+    result = await approvalStore.rejectApproval(approval.value.id, comment.value)
   }
-  
-  router.push('/approval')
+
+  if (result.success) {
+    router.push('/approval')
+  }
 }
 </script>

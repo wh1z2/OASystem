@@ -155,12 +155,17 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
 
 const router = useRouter()
 const approvalStore = useApprovalStore()
+
+// 页面加载时获取待办列表
+onMounted(() => {
+  approvalStore.fetchTodoList()
+})
 
 const stats = computed(() => ({
   pending: approvalStore.pendingApprovals.length,

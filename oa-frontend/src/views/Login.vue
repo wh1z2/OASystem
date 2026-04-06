@@ -104,17 +104,15 @@ function fillTestAccount(type) {
 async function handleLogin() {
   loading.value = true
   errorMessage.value = ''
-  
-  await new Promise(resolve => setTimeout(resolve, 500))
-  
-  const result = authStore.login(form.value)
-  
+
+  const result = await authStore.login(form.value)
+
   if (result.success) {
     router.push('/')
   } else {
     errorMessage.value = result.message
   }
-  
+
   loading.value = false
 }
 </script>

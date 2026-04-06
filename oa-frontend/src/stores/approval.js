@@ -1,164 +1,291 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import apiClient from '@/api/config.js'
+
+// 状态映射 (后端数值 -> 前端字符串)
+const statusMap = {
+  0: 'draft',
+  1: 'processing',
+  2: 'approved',
+  3: 'returned',
+  4: 'revoked'
+}
+
+// 类型映射 (后端数值 -> 前端字符串)
+const typeMap = {
+  1: 'leave',
+  2: 'expense',
+  3: 'purchase',
+  4: 'overtime',
+  5: 'travel'
+}
+
+// 优先级映射
+const priorityMap = {
+  0: 'low',
+  1: 'normal',
+  2: 'high'
+}
 
 export const useApprovalStore = defineStore('approval', () => {
-  const approvals = ref([
-    {
-      id: 1,
-      title: '请假申请 - 年假3天',
-      type: 'leave',
-      applicant: '李员工',
-      applicantId: 3,
-      department: '市场部',
-      status: 'pending',
-      priority: 'normal',
-      createTime: '2024-01-15 09:30:00',
-      content: '申请2024年1月20日至1月22日年假，共3天，用于家庭事务处理。',
-      currentApprover: '张经理',
-      history: [
-        { approver: '李员工', action: 'submit', time: '2024-01-15 09:30:00', comment: '提交申请' }
-      ]
-    },
-    {
-      id: 2,
-      title: '报销申请 - 差旅费用',
-      type: 'expense',
-      applicant: '王销售',
-      applicantId: 4,
-      department: '销售部',
-      status: 'pending',
-      priority: 'high',
-      createTime: '2024-01-15 10:15:00',
-      content: '出差北京客户拜访，交通费1200元，住宿费800元，餐饮费300元，合计2300元。',
-      currentApprover: '张经理',
-      history: [
-        { approver: '王销售', action: 'submit', time: '2024-01-15 10:15:00', comment: '提交申请' }
-      ]
-    },
-    {
-      id: 3,
-      title: '采购申请 - 办公设备',
-      type: 'purchase',
-      applicant: '赵行政',
-      applicantId: 5,
-      department: '行政部',
-      status: 'approved',
-      priority: 'normal',
-      createTime: '2024-01-14 14:00:00',
-      content: '采购笔记本电脑2台，打印机1台，预算合计25000元。',
-      currentApprover: null,
-      history: [
-        { approver: '赵行政', action: 'submit', time: '2024-01-14 14:00:00', comment: '提交申请' },
-        { approver: '张经理', action: 'approve', time: '2024-01-14 16:30:00', comment: '同意采购' },
-        { approver: '系统管理员', action: 'approve', time: '2024-01-15 09:00:00', comment: '审批通过' }
-      ]
-    },
-    {
-      id: 4,
-      title: '加班申请 - 项目上线',
-      type: 'overtime',
-      applicant: '李员工',
-      applicantId: 3,
-      department: '市场部',
-      status: 'rejected',
-      priority: 'low',
-      createTime: '2024-01-13 11:00:00',
-      content: '申请1月18日、19日加班，配合项目上线工作。',
-      currentApprover: null,
-      history: [
-        { approver: '李员工', action: 'submit', time: '2024-01-13 11:00:00', comment: '提交申请' },
-        { approver: '张经理', action: 'reject', time: '2024-01-13 15:00:00', comment: '项目已延期，暂不需要加班' }
-      ]
-    },
-    {
-      id: 5,
-      title: '出差申请 - 上海客户拜访',
-      type: 'travel',
-      applicant: '王销售',
-      applicantId: 4,
-      department: '销售部',
-      status: 'pending',
-      priority: 'high',
-      createTime: '2024-01-15 08:00:00',
-      content: '计划1月22日至1月24日出差上海，拜访重要客户，预计费用5000元。',
-      currentApprover: '张经理',
-      history: [
-        { approver: '王销售', action: 'submit', time: '2024-01-15 08:00:00', comment: '提交申请' }
-      ]
-    }
-  ])
+  // 审批列表
+  const approvals = ref([])
+  // 当前审批详情
+  const currentApproval = ref(null)
+  // 审批历史
+  const approvalHistory = ref([])
+  // 分页信息
+  const pagination = ref({
+    current: 1,
+    size: 10,
+    total: 0
+  })
 
+  // 计算属性 - 待办列表 (状态为 processing)
   const pendingApprovals = computed(() =>
-    approvals.value.filter(a => a.status === 'pending')
+    approvals.value.filter(a => a.status === 'processing')
   )
 
+  // 计算属性 - 已通过列表
   const approvedApprovals = computed(() =>
     approvals.value.filter(a => a.status === 'approved')
   )
 
+  // 计算属性 - 已打回列表
   const rejectedApprovals = computed(() =>
-    approvals.value.filter(a => a.status === 'rejected')
+    approvals.value.filter(a => a.status === 'returned')
   )
 
-  function getApprovalById(id) {
-    return approvals.value.find(a => a.id === parseInt(id))
+  // 转换后端数据为前端格式
+  function transformApproval(item) {
+    return {
+      id: item.id,
+      title: item.title,
+      type: typeMap[item.type] || item.type,
+      applicant: item.applicantName || item.applicant,
+      applicantId: item.applicantId,
+      department: item.deptName || item.department,
+      status: statusMap[item.status] || item.status,
+      priority: priorityMap[item.priority] || item.priority,
+      createTime: item.createTime,
+      content: item.content,
+      currentApprover: item.currentApproverName || item.currentApprover,
+      currentApproverId: item.currentApproverId,
+      formData: item.formData
+    }
   }
 
-  function addApproval(approval) {
-    const newApproval = {
-      id: approvals.value.length + 1,
-      ...approval,
-      status: 'pending',
-      createTime: new Date().toLocaleString('zh-CN'),
-      history: [
-        {
-          approver: approval.applicant,
-          action: 'submit',
-          time: new Date().toLocaleString('zh-CN'),
-          comment: '提交申请'
+  // 获取审批列表
+  async function fetchApprovals(params = {}) {
+    try {
+      const { records, total, current, size } = await apiClient.get('/approvals', {
+        params: {
+          current: params.current || 1,
+          size: params.size || 10,
+          title: params.title || undefined,
+          type: params.type || undefined,
+          status: params.status !== undefined ? params.status : undefined,
+          applicantId: params.applicantId || undefined
         }
-      ]
-    }
-    approvals.value.unshift(newApproval)
-    return newApproval
-  }
-
-  function approveApproval(id, comment, approver) {
-    const approval = approvals.value.find(a => a.id === id)
-    if (approval) {
-      approval.status = 'approved'
-      approval.currentApprover = null
-      approval.history.push({
-        approver,
-        action: 'approve',
-        time: new Date().toLocaleString('zh-CN'),
-        comment
       })
+      approvals.value = records.map(transformApproval)
+      pagination.value = { current, size, total }
+      return { success: true, data: approvals.value }
+    } catch (error) {
+      return { success: false, message: error.message }
     }
   }
 
-  function rejectApproval(id, comment, approver) {
-    const approval = approvals.value.find(a => a.id === id)
-    if (approval) {
-      approval.status = 'rejected'
-      approval.currentApprover = null
-      approval.history.push({
-        approver,
-        action: 'reject',
-        time: new Date().toLocaleString('zh-CN'),
-        comment
+  // 获取审批详情
+  async function fetchApprovalById(id) {
+    try {
+      const data = await apiClient.get(`/approvals/${id}`)
+      currentApproval.value = transformApproval(data)
+      return { success: true, data: currentApproval.value }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 创建审批工单
+  async function createApproval(approvalData) {
+    try {
+      const data = await apiClient.post('/approvals', approvalData)
+      return { success: true, data }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 更新审批工单
+  async function updateApproval(id, approvalData) {
+    try {
+      await apiClient.put(`/approvals/${id}`, approvalData)
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 删除审批工单
+  async function deleteApproval(id) {
+    try {
+      await apiClient.delete(`/approvals/${id}`)
+      // 从列表中移除
+      approvals.value = approvals.value.filter(a => a.id !== id)
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 提交审批
+  async function submitApproval(id, nextApproverId) {
+    try {
+      await apiClient.post(`/approvals/${id}/submit`, {
+        nextApproverId: nextApproverId
       })
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 审批通过
+  async function approveApproval(id, comment) {
+    try {
+      await apiClient.post(`/approvals/${id}/approve`, {
+        comment: comment
+      })
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 审批拒绝
+  async function rejectApproval(id, comment) {
+    try {
+      await apiClient.post(`/approvals/${id}/reject`, {
+        comment: comment
+      })
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 重新编辑
+  async function reeditApproval(id) {
+    try {
+      await apiClient.post(`/approvals/${id}/reedit`)
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 撤销申请
+  async function revokeApproval(id) {
+    try {
+      await apiClient.post(`/approvals/${id}/revoke`)
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 获取待办列表
+  async function fetchTodoList(params = {}) {
+    try {
+      const { records, total, current, size } = await apiClient.get('/approvals/todo', {
+        params: {
+          current: params.current || 1,
+          size: params.size || 10
+        }
+      })
+      approvals.value = records.map(transformApproval)
+      pagination.value = { current, size, total }
+      return { success: true, data: approvals.value }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 获取已办列表
+  async function fetchDoneList(params = {}) {
+    try {
+      const { records, total, current, size } = await apiClient.get('/approvals/done', {
+        params: {
+          current: params.current || 1,
+          size: params.size || 10
+        }
+      })
+      approvals.value = records.map(transformApproval)
+      pagination.value = { current, size, total }
+      return { success: true, data: approvals.value }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 获取我的申请列表
+  async function fetchMyApprovals(params = {}) {
+    try {
+      const { records, total, current, size } = await apiClient.get('/approvals/my', {
+        params: {
+          current: params.current || 1,
+          size: params.size || 10
+        }
+      })
+      approvals.value = records.map(transformApproval)
+      pagination.value = { current, size, total }
+      return { success: true, data: approvals.value }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 获取审批历史
+  async function fetchApprovalHistory(id) {
+    try {
+      const data = await apiClient.get(`/approvals/${id}/history`)
+      approvalHistory.value = data.map(item => ({
+        approver: item.approverName || item.approver,
+        action: item.action,
+        actionName: item.actionName,
+        time: item.createTime,
+        comment: item.comment,
+        isProxy: item.isProxy,
+        approvalType: item.approvalType
+      }))
+      return { success: true, data: approvalHistory.value }
+    } catch (error) {
+      return { success: false, message: error.message }
     }
   }
 
   return {
     approvals,
+    currentApproval,
+    approvalHistory,
+    pagination,
     pendingApprovals,
     approvedApprovals,
     rejectedApprovals,
-    getApprovalById,
-    addApproval,
+    fetchApprovals,
+    fetchApprovalById,
+    createApproval,
+    updateApproval,
+    deleteApproval,
+    submitApproval,
     approveApproval,
-    rejectApproval
+    rejectApproval,
+    reeditApproval,
+    revokeApproval,
+    fetchTodoList,
+    fetchDoneList,
+    fetchMyApprovals,
+    fetchApprovalHistory
   }
 })

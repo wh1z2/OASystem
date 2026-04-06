@@ -75,7 +75,10 @@
             <td class="px-6 py-4">
               <span :class="[
                 'badge',
-                item.status === 'pending' ? 'badge-warning' : item.status === 'approved' ? 'badge-success' : 'badge-danger'
+                item.status === 'processing' ? 'badge-warning' :
+                  item.status === 'approved' ? 'badge-success' :
+                    item.status === 'draft' ? 'bg-gray-100 text-gray-600' :
+                      item.status === 'returned' ? 'badge-danger' : 'bg-gray-100 text-gray-600'
               ]">
                 {{ getStatusLabel(item.status) }}
               </span>
@@ -88,7 +91,7 @@
                 <button @click="viewDetail(item.id)" class="text-primary-600 hover:text-primary-700 text-sm font-medium cursor-pointer">
                   查看
                 </button>
-                <button v-if="item.status === 'pending'" @click="showApproveModal(item)" class="text-success-600 hover:text-success-700 text-sm font-medium cursor-pointer">
+                <button v-if="item.status === 'processing'" @click="showApproveModal(item)" class="text-success-600 hover:text-success-700 text-sm font-medium cursor-pointer">
                   审批
                 </button>
               </div>
@@ -128,14 +131,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
-import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const approvalStore = useApprovalStore()
-const authStore = useAuthStore()
 
 const searchQuery = ref('')
 const filterType = ref('')
@@ -175,9 +176,11 @@ function getPriorityLabel(priority) {
 
 function getStatusLabel(status) {
   const labels = {
-    pending: '待审批',
+    draft: '草稿',
+    processing: '审批中',
     approved: '已通过',
-    rejected: '已拒绝'
+    returned: '已打回',
+    revoked: '已撤销'
   }
   return labels[status] || status
 }
@@ -192,16 +195,28 @@ function showApproveModal(item) {
   showModal.value = true
 }
 
-function handleApprove(status) {
+// 页面加载时获取数据
+onMounted(() => {
+  approvalStore.fetchApprovals()
+})
+
+async function handleApprove(action) {
   if (!currentItem.value) return
-  
-  if (status === 'approved') {
-    approvalStore.approveApproval(currentItem.value.id, approveComment.value, authStore.currentUser?.name)
+
+  let result
+  if (action === 'approved') {
+    result = await approvalStore.approveApproval(currentItem.value.id, approveComment.value)
   } else {
-    approvalStore.rejectApproval(currentItem.value.id, approveComment.value, authStore.currentUser?.name)
+    result = await approvalStore.rejectApproval(currentItem.value.id, approveComment.value)
   }
-  
+
+  if (result.success) {
+    // 刷新列表
+    await approvalStore.fetchApprovals()
+  }
+
   showModal.value = false
   currentItem.value = null
+  approveComment.value = ''
 }
 </script>

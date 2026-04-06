@@ -78,7 +78,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
 
@@ -88,15 +88,23 @@ const approvalStore = useApprovalStore()
 const filterStatus = ref('')
 
 const filteredApprovals = computed(() => {
-  const done = [...approvalStore.approvedApprovals, ...approvalStore.rejectedApprovals]
-  if (!filterStatus.value) return done
-  return done.filter(item => item.status === filterStatus.value)
+  // 已办列表从后端获取
+  if (!filterStatus.value) return approvalStore.approvals
+  return approvalStore.approvals.filter(item => item.status === filterStatus.value)
+})
+
+// 页面加载时获取已办列表
+onMounted(() => {
+  approvalStore.fetchDoneList()
 })
 
 function getStatusLabel(status) {
   const labels = {
     approved: '已通过',
-    rejected: '已拒绝'
+    returned: '已打回',
+    draft: '草稿',
+    processing: '审批中',
+    revoked: '已撤销'
   }
   return labels[status] || status
 }
