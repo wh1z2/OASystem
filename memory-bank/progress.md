@@ -270,6 +270,63 @@
 
 **验证状态**: ✅ 审批核心功能已实现，权限系统优化完成，冒烟测试通过，可以进入阶段七
 
+### 阶段七：前端接口对接 ✅
+
+**完成日期**: 2026-04-06
+
+**执行内容**:
+1. ✅ 配置前端代理 (vite.config.js)
+   - 配置 `/api` 代理到 `http://localhost:8080`
+   - 支持路径重写和跨域
+
+2. ✅ 创建 axios 配置文件 (`src/api/config.js`)
+   - 设置 baseURL 为 `/api`
+   - 请求拦截器自动添加 JWT Token
+   - 响应拦截器统一处理错误和 Token 过期
+
+3. ✅ 更新认证存储逻辑 (auth.js)
+   - 使用 `apiClient.post('/auth/login')` 调用后端登录接口
+   - 使用 `apiClient.get('/auth/info')` 获取当前用户信息
+   - 支持 Token 过期自动跳转登录页
+
+4. ✅ 对接审批列表接口 (approval.js)
+   - 映射后端状态/类型/优先级到前端格式
+   - 实现工单 CRUD、状态流转、列表查询
+   - 支持待办、已办、我的申请列表
+
+5. ✅ 更新页面组件调用
+   - `Login.vue`: 异步登录处理
+   - `ApprovalManage.vue`: 加载审批列表，更新状态标签
+   - `ApprovalDetail.vue`: 加载详情和历史记录，异步审批操作
+   - `TodoList.vue`: 加载待办列表，快速审批
+   - `DoneList.vue`: 加载已办列表
+   - `Dashboard.vue`: 加载待办统计
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| 代理配置 | `oa-frontend/vite.config.js` |
+| API 配置 | `oa-frontend/src/api/config.js` (新增) |
+| Store 更新 | `oa-frontend/src/stores/auth.js` |
+| Store 更新 | `oa-frontend/src/stores/approval.js` |
+| 页面组件 | `oa-frontend/src/views/Login.vue` |
+| 页面组件 | `oa-frontend/src/views/ApprovalManage.vue` |
+| 页面组件 | `oa-frontend/src/views/ApprovalDetail.vue` |
+| 页面组件 | `oa-frontend/src/views/TodoList.vue` |
+| 页面组件 | `oa-frontend/src/views/DoneList.vue` |
+| 页面组件 | `oa-frontend/src/views/Dashboard.vue` |
+
+**数据映射关系**:
+| 前端状态 | 后端数值 | 说明 |
+|---------|---------|------|
+| draft | 0 | 草稿 |
+| processing | 1 | 审批中 |
+| approved | 2 | 已通过 |
+| returned | 3 | 已打回 |
+| revoked | 4 | 已撤销 |
+
+**验证状态**: ✅ 前端接口对接完成，等待用户验证测试
+
 ---
 
 ## 待完成阶段
@@ -280,7 +337,7 @@
 - [x] 阶段四：用户认证模块实现 ✅
 - [x] 阶段五：COLA状态机集成 ✅
 - [x] 阶段六：审批流程核心功能 ✅
-- [ ] 阶段七：前端接口对接
+- [x] 阶段七：前端接口对接 ✅
 - [ ] 阶段八：表单设计器实现
 - [ ] 阶段九：用户与角色管理
 - [ ] 阶段十：系统测试与优化

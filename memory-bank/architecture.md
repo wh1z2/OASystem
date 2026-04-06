@@ -325,6 +325,25 @@ mysql -u root -p < database/init.sql
 | `StateMachineConfigTest.java` | `oa-backend/test/config/StateMachineConfigTest.java` | 状态机集成测试（13个测试用例）。验证6条正常流转规则和6条非法/权限不足场景 |
 | `ApprovalStateMachineTest.java` | `oa-backend/test/statemachine/ApprovalStateMachineTest.java` | 状态机辅助类单元测试（12个测试用例）。验证3个条件检查和5个动作执行 |
 
+### 3.7 阶段七新增文件 (前端接口对接)
+
+| 文件 | 路径 | 作用 |
+|------|------|------|
+| **API 配置** |||
+| `config.js` | `oa-frontend/src/api/config.js` | Axios 配置文件。创建 axios 实例，设置 baseURL 为 `/api`；请求拦截器自动从 localStorage 获取 token 并添加到 Authorization 头；响应拦截器统一处理后端响应格式，处理 401 Token 过期自动跳转登录页 |
+| **Store 更新** |||
+| `auth.js` (更新) | `oa-frontend/src/stores/auth.js` | 更新为异步方法。`login` 调用 `POST /auth/login` 获取 JWT；`fetchCurrentUser` 调用 `GET /auth/info` 获取用户信息；`initAuth` 初始化时验证 token 有效性 |
+| `approval.js` (更新) | `oa-frontend/src/stores/approval.js` | 完整对接后端 14 个审批接口。包含状态/类型/优先级映射转换；实现工单 CRUD、状态流转、待办/已办/我的申请列表查询、审批历史查询 |
+| **前端页面更新** |||
+| `Login.vue` (更新) | `oa-frontend/src/views/Login.vue` | 更新登录处理为异步，调用 authStore.login 并等待结果 |
+| `ApprovalManage.vue` (更新) | `oa-frontend/src/views/ApprovalManage.vue` | 添加 onMounted 加载审批列表；更新状态标签映射；异步审批操作并刷新列表 |
+| `ApprovalDetail.vue` (更新) | `oa-frontend/src/views/ApprovalDetail.vue` | 添加 onMounted 加载详情和历史；使用 approvalHistory 计算属性；异步审批操作 |
+| `TodoList.vue` (更新) | `oa-frontend/src/views/TodoList.vue` | 添加 onMounted 加载待办列表；异步快速审批/拒绝操作 |
+| `DoneList.vue` (更新) | `oa-frontend/src/views/DoneList.vue` | 添加 onMounted 加载已办列表；更新状态标签 |
+| `Dashboard.vue` (更新) | `oa-frontend/src/views/Dashboard.vue` | 添加 onMounted 加载待办列表 |
+| **构建配置更新** |||
+| `vite.config.js` (更新) | `oa-frontend/vite.config.js` | 添加代理配置，将 `/api` 请求转发到 `http://localhost:8080`，支持路径重写 |
+
 ### 3.6 阶段六新增文件 (审批流程核心功能)
 
 | 文件 | 路径 | 作用 |
@@ -599,4 +618,4 @@ public class ApprovalContext {
 
 ---
 
-*最后更新: 2026-04-05 (阶段六完成：审批流程核心功能已落地，包含工单CRUD、状态流转、4级权限层级、代审批支持、审批人权限校验、14个REST端点、OpenAPI测试文档)*
+*最后更新: 2026-04-06 (阶段七完成：前端接口对接已完成，包括代理配置、axios配置、认证store更新、审批store更新、页面组件接口对接)*
