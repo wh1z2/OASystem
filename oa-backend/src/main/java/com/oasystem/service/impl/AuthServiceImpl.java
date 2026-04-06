@@ -46,7 +46,8 @@ public class AuthServiceImpl implements AuthService {
                 userDetails.getName(),
                 userDetails.getAvatar(),
                 userDetails.getRoleName(),
-                userDetails.getRoleLabel()
+                userDetails.getRoleLabel(),
+                userDetails.getDeptName()
         );
 
         return new LoginResponse(
@@ -69,6 +70,7 @@ public class AuthServiceImpl implements AuthService {
         BeanUtils.copyProperties(userDetails, response);
         response.setRoleName(userDetails.getRoleName());
         response.setRoleLabel(userDetails.getRoleLabel());
+        response.setDepartment(userDetails.getDeptName());
         return response;
     }
 }

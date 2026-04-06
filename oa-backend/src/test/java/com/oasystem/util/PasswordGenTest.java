@@ -8,8 +8,10 @@ public class PasswordGenTest {
     @Test
     public void generatePasswordHashes() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        System.out.println("admin123   -> " + encoder.encode("zhangsan123"));
-        System.out.println("manager123 -> " + encoder.encode("wangwu123"));
+        System.out.println("admin123   -> " + encoder.encode("admin123"));
+        System.out.println("manager123 -> " + encoder.encode("manager123"));
         System.out.println("user123    -> " + encoder.encode("user123"));
+        System.out.println("zhangsan123    -> " + encoder.encode("zhangsan123"));
+        System.out.println("wangwu123    -> " + encoder.encode("wangwu123"));
     }
 }

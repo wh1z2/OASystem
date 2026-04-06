@@ -2,8 +2,10 @@ package com.oasystem.security;
 
 import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.oasystem.entity.Department;
 import com.oasystem.entity.Role;
 import com.oasystem.entity.User;
+import com.oasystem.mapper.DepartmentMapper;
 import com.oasystem.mapper.RoleMapper;
 import com.oasystem.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
+    private final DepartmentMapper departmentMapper;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -39,6 +42,9 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         String roleName = role != null ? role.getName() : "";
         String roleLabel = role != null ? role.getLabel() : "";
 
+        Department dept = departmentMapper.selectById(user.getDeptId());
+        String deptName = dept != null ? dept.getName() : "";
+
         List<String> permissions = Collections.emptyList();
         if (role != null && role.getPermissions() != null && !role.getPermissions().isEmpty()) {
             try {
@@ -48,7 +54,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             }
         }
 
-        UserDetailsImpl userDetails = UserDetailsImpl.build(user, roleName, permissions);
+        UserDetailsImpl userDetails = UserDetailsImpl.build(user, roleName, deptName, permissions);
         userDetails.setRoleLabel(roleLabel);
         return userDetails;
     }

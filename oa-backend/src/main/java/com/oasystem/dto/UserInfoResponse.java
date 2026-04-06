@@ -20,6 +20,7 @@ public class UserInfoResponse {
     private String roleName;
     private String roleLabel;
     private Long deptId;
+    private String department;
     private Integer status;
     private LocalDateTime createTime;
 }

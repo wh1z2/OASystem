@@ -14,7 +14,20 @@ USE oa_system;
 -- Set charset for this session
 SET NAMES utf8mb4;
 
--- 2. Create User Table
+-- 2. Create Department Table
+CREATE TABLE IF NOT EXISTS sys_dept (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'Department ID',
+    name VARCHAR(100) NOT NULL COMMENT 'Department Name',
+    code VARCHAR(50) COMMENT 'Department Code',
+    description VARCHAR(200) COMMENT 'Department Description',
+    sort_order INT DEFAULT 0 COMMENT 'Sort Order',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT 'Status: 0-Disabled, 1-Enabled',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create Time',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update Time',
+    UNIQUE KEY uk_code (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Department Table';
+
+-- 3. Create User Table
 CREATE TABLE IF NOT EXISTS sys_user (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'Primary Key ID',
     username VARCHAR(50) NOT NULL COMMENT 'Username',
@@ -105,7 +118,14 @@ INSERT INTO sys_role (id, name, label, description, permissions) VALUES
 (2, 'manager', '部门经理', '审批权限、查看用户、查看报表', '["approval", "user_view", "report", "apply", "personal"]'),
 (3, 'employee', '普通员工', '提交申请、个人信息管理', '["apply", "personal"]');
 
--- 2. Insert Test Users (Passwords are BCrypt encrypted. Original passwords: admin123, manager123, user123)
+-- 2. Insert Departments
+INSERT INTO sys_dept (id, name, code, description, sort_order, status) VALUES
+(1, '技术部', 'TECH', '技术研发部门', 1, 1),
+(2, '财务部', 'FINANCE', '财务管理部门', 2, 1),
+(3, '人事部', 'HR', '人力资源部门', 3, 1),
+(4, '系统管理部', 'ADMIN', '系统运维管理部门', 4, 1);
+
+-- 3. Insert Test Users (Passwords are BCrypt encrypted. Original passwords: admin123, manager123, user123)
 INSERT INTO sys_user (id, username, password, name, email, phone, role_id, dept_id, status) VALUES
 (1, 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EO', '系统管理员', 'admin@oasystem.com', '13800000001', 1, 1, 1),
 (2, 'manager', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EO', '张经理', 'manager@oasystem.com', '13800000002', 2, 1, 1),
@@ -139,6 +159,7 @@ INSERT INTO oa_approval_history (approval_id, approver_id, action, comment) VALU
 (4, 2, 2, '近期项目繁忙，建议推迟一周');
 
 -- Reset Auto Increment IDs
+ALTER TABLE sys_dept AUTO_INCREMENT = 10;
 ALTER TABLE sys_role AUTO_INCREMENT = 10;
 ALTER TABLE sys_user AUTO_INCREMENT = 10;
 ALTER TABLE oa_form_template AUTO_INCREMENT = 10;
