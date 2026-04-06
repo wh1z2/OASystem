@@ -270,14 +270,18 @@ public class ApprovalServiceImpl implements ApprovalService {
         // 将权限检查结果放入上下文，供后续状态机动作使用
         context.setPermissionResult(permissionResult);
 
+        log.info("即将触发状态机：approvalId={}, currentStatus={}, event=APPROVE", id);
         ApprovalStatus newStatus = stateMachine.fireEvent(currentStatus, ApprovalEvent.APPROVE, context);
+        log.info("状态机执行完成：approvalId={}, newStatus={}", id, newStatus);
 
         if (newStatus == currentStatus) {
+            log.error("状态转换失败：approvalId={}, status unchanged", id);
             throw new BusinessException("状态转换失败");
         }
 
         // 更新工单
-        approvalMapper.updateById(approval);
+        int rows = approvalMapper.updateById(approval);
+        log.info("工单更新完成：approvalId={}, rows={}", id, rows);
 
         // 记录代审批信息到日志（如为代审批）
         if (permissionResult.isProxyApproval()) {
@@ -324,14 +328,18 @@ public class ApprovalServiceImpl implements ApprovalService {
         // 将权限检查结果放入上下文，供后续状态机动作使用
         context.setPermissionResult(permissionResult);
 
+        log.info("即将触发状态机：approvalId={}, currentStatus={}, event=REJECT", id);
         ApprovalStatus newStatus = stateMachine.fireEvent(currentStatus, ApprovalEvent.REJECT, context);
+        log.info("状态机执行完成：approvalId={}, newStatus={}", id, newStatus);
 
         if (newStatus == currentStatus) {
+            log.error("状态转换失败：approvalId={}, status unchanged", id);
             throw new BusinessException("状态转换失败");
         }
 
         // 更新工单
-        approvalMapper.updateById(approval);
+        int rows = approvalMapper.updateById(approval);
+        log.info("工单更新完成：approvalId={}, rows={}", id, rows);
 
         // 记录代审批信息到日志（如为代审批）
         if (permissionResult.isProxyApproval()) {

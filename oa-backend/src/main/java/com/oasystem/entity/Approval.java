@@ -1,6 +1,8 @@
 package com.oasystem.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -35,6 +37,7 @@ public class Approval {
     /**
      * 当前审批人ID
      */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long currentApproverId;
 
     /**

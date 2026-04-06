@@ -337,13 +337,18 @@ public class ApprovalStateMachineHelper {
                 history.setIsProxy(0);
             }
 
-            approvalHistoryMapper.insert(history);
+            int rows = approvalHistoryMapper.insert(history);
+            log.info("保存审批历史记录成功：approvalId={}, action={}, rows={}, historyId={}",
+                    approvalId, action, rows, history.getId());
 
             // 记录审计日志
             logAudit(history, permissionResult);
 
         } catch (Exception e) {
-            log.error("保存审批历史记录失败：approvalId={}, action={}", approvalId, action, e);
+            log.error("保存审批历史记录失败：approvalId={}, action={}, error={}",
+                    approvalId, action, e.getMessage(), e);
+            // 抛出异常确保事务回滚
+            throw new RuntimeException("保存审批历史记录失败：" + e.getMessage(), e);
         }
     }
 
