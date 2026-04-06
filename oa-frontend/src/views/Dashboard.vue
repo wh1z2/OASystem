@@ -162,9 +162,9 @@ import { useApprovalStore } from '@/stores/approval'
 const router = useRouter()
 const approvalStore = useApprovalStore()
 
-// 页面加载时获取待办列表
+// 页面加载时获取所有审批数据
 onMounted(() => {
-  approvalStore.fetchTodoList()
+  approvalStore.fetchApprovals()
 })
 
 const stats = computed(() => ({

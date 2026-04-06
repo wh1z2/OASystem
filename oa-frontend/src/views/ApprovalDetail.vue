@@ -71,9 +71,10 @@
                   <span class="font-medium text-gray-900">{{ record.approver }}</span>
                   <span :class="[
                     'badge text-xs',
-                    record.action === 'submit' ? 'badge-primary' : record.action === 'approve' ? 'badge-success' : 'badge-danger'
+                    record.actionName === '提交' ? 'badge-primary' :
+                      record.actionName === '审批同意' ? 'badge-success' : 'badge-danger'
                   ]">
-                    {{ getActionLabel(record.action) }}
+                    {{ record.actionName || getActionLabel(record.action) }}
                   </span>
                 </div>
                 <p class="text-sm text-gray-500 mt-1">{{ record.comment }}</p>
@@ -108,17 +109,23 @@
         </div>
 
         <div class="card">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">当前审批人</h3>
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            {{ approval.status === 'processing' ? '当前审批人' : '审批人' }}
+          </h3>
           <div v-if="approval.currentApprover" class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
               <span class="text-sm font-medium text-primary-600">{{ approval.currentApprover.charAt(0) }}</span>
             </div>
             <div>
               <p class="font-medium text-gray-900">{{ approval.currentApprover }}</p>
-              <p class="text-sm text-gray-500">待审批</p>
+              <p class="text-sm text-gray-500">
+                {{ approval.status === 'processing' ? '待审批' : '已处理' }}
+              </p>
             </div>
           </div>
-          <p v-else class="text-gray-500 text-sm">无待审批人</p>
+          <p v-else class="text-gray-500 text-sm">
+            {{ approval.status === 'processing' ? '无待审批人' : '审批流程已结束' }}
+          </p>
         </div>
 
         <div class="card">
