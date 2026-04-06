@@ -130,7 +130,7 @@
             </div>
             <div class="flex justify-between">
               <span class="text-gray-500">最后更新</span>
-              <span class="text-gray-900">{{ approval.history[approval.history.length - 1]?.time }}</span>
+              <span class="text-gray-900">{{ approval.history?.length > 0 ? approval.history[approval.history.length - 1]?.time : '-' }}</span>
             </div>
           </div>
         </div>

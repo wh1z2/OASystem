@@ -71,7 +71,8 @@ export const useApprovalStore = defineStore('approval', () => {
       content: item.content,
       currentApprover: item.currentApproverName || item.currentApprover,
       currentApproverId: item.currentApproverId,
-      formData: item.formData
+      formData: item.formData,
+      history: item.history || []
     }
   }
 
