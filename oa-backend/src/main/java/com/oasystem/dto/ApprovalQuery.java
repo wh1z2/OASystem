@@ -29,12 +29,26 @@ public class ApprovalQuery {
     private Long applicantId;
 
     /**
-     * 当前页码
+     * 当前页码（与前端保持一致，使用current）
      */
-    private Integer pageNum = 1;
+    private Integer current = 1;
 
     /**
-     * 每页大小
+     * 每页大小（与前端保持一致，使用size）
      */
-    private Integer pageSize = 10;
+    private Integer size = 10;
+
+    /**
+     * 获取当前页码（兼容旧代码）
+     */
+    public Integer getPageNum() {
+        return current;
+    }
+
+    /**
+     * 获取每页大小（兼容旧代码）
+     */
+    public Integer getPageSize() {
+        return size;
+    }
 }

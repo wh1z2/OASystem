@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.oasystem.dto.*;
 import com.oasystem.entity.Approval;
 import com.oasystem.entity.ApprovalHistory;
+import com.oasystem.entity.Department;
 import com.oasystem.entity.User;
 import com.oasystem.enums.ApprovalEvent;
 import com.oasystem.enums.ApprovalStatus;
@@ -16,6 +17,7 @@ import com.oasystem.enums.Priority;
 import com.oasystem.exception.BusinessException;
 import com.oasystem.mapper.ApprovalHistoryMapper;
 import com.oasystem.mapper.ApprovalMapper;
+import com.oasystem.mapper.DepartmentMapper;
 import com.oasystem.mapper.UserMapper;
 import com.oasystem.service.ApprovalService;
 import com.oasystem.statemachine.ApprovalContext;
@@ -27,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +47,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     private final ApprovalMapper approvalMapper;
     private final ApprovalHistoryMapper approvalHistoryMapper;
     private final UserMapper userMapper;
+    private final DepartmentMapper departmentMapper;
     private final StateMachine<ApprovalStatus, ApprovalEvent, ApprovalContext> stateMachine;
     private final ApprovalStateMachineHelper stateMachineHelper;
 
@@ -403,9 +407,20 @@ public class ApprovalServiceImpl implements ApprovalService {
         List<Approval> approvals = approvalMapper.selectList(wrapper);
         long total = approvalMapper.selectCount(wrapper);
 
-        List<ApprovalDetailResponse> responses = approvals.stream()
-                .map(this::convertToDetailResponse)
-                .collect(Collectors.toList());
+        // 批量查询用户信息和部门信息
+        Map<Long, User> userMap;
+        Map<Long, String> deptNameMap;
+        {
+            @SuppressWarnings("unchecked")
+            Map<Long, ?>[] result = batchQueryUsersAndDepts(approvals);
+            userMap = (Map<Long, User>) result[0];
+            deptNameMap = (Map<Long, String>) result[1];
+        }
+
+        List<ApprovalDetailResponse> responses = new ArrayList<>();
+        for (Approval approval : approvals) {
+            responses.add(convertToDetailResponse(approval, userMap, deptNameMap));
+        }
 
         return PageResult.of(responses, total, query.getPageNum(), query.getPageSize());
     }
@@ -431,9 +446,20 @@ public class ApprovalServiceImpl implements ApprovalService {
         List<Approval> approvals = approvalMapper.selectList(wrapper);
         long total = approvalMapper.selectCount(wrapper);
 
-        List<ApprovalDetailResponse> responses = approvals.stream()
-                .map(this::convertToDetailResponse)
-                .collect(Collectors.toList());
+        // 批量查询用户信息和部门信息
+        Map<Long, User> userMap;
+        Map<Long, String> deptNameMap;
+        {
+            @SuppressWarnings("unchecked")
+            Map<Long, ?>[] result = batchQueryUsersAndDepts(approvals);
+            userMap = (Map<Long, User>) result[0];
+            deptNameMap = (Map<Long, String>) result[1];
+        }
+
+        List<ApprovalDetailResponse> responses = new ArrayList<>();
+        for (Approval approval : approvals) {
+            responses.add(convertToDetailResponse(approval, userMap, deptNameMap));
+        }
 
         return PageResult.of(responses, total, query.getPageNum(), query.getPageSize());
     }
@@ -495,9 +521,59 @@ public class ApprovalServiceImpl implements ApprovalService {
     }
 
     /**
-     * 转换为详情响应DTO
+     * 批量查询工单相关的用户信息和部门信息
+     * 返回一个包含两个Map的数组：第一个是用户Map，第二个是部门Map
      */
-    private ApprovalDetailResponse convertToDetailResponse(Approval approval) {
+    @SuppressWarnings("unchecked")
+    private Map<Long, User>[] batchQueryUsersAndDepts(List<Approval> approvals) {
+        if (approvals.isEmpty()) {
+            return new Map[]{Collections.emptyMap(), Collections.emptyMap()};
+        }
+
+        // 收集所有用户ID（申请人 + 当前审批人）
+        Set<Long> userIds = approvals.stream()
+                .map(Approval::getApplicantId)
+                .collect(Collectors.toSet());
+        approvals.stream()
+                .map(Approval::getCurrentApproverId)
+                .filter(id -> id != null)
+                .forEach(userIds::add);
+
+        // 批量查询用户
+        if (userIds.isEmpty()) {
+            return new Map[]{Collections.emptyMap(), Collections.emptyMap()};
+        }
+
+        LambdaQueryWrapper<User> userWrapper = Wrappers.lambdaQuery();
+        userWrapper.in(User::getId, userIds);
+        List<User> users = userMapper.selectList(userWrapper);
+
+        Map<Long, User> userMap = users.stream()
+                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+
+        // 收集所有部门ID
+        Set<Long> deptIds = users.stream()
+                .map(User::getDeptId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+
+        // 批量查询部门
+        Map<Long, String> deptNameMap = Collections.emptyMap();
+        if (!deptIds.isEmpty()) {
+            LambdaQueryWrapper<Department> deptWrapper = Wrappers.lambdaQuery();
+            deptWrapper.in(Department::getId, deptIds);
+            List<Department> depts = departmentMapper.selectList(deptWrapper);
+            deptNameMap = depts.stream()
+                    .collect(Collectors.toMap(Department::getId, Department::getName, (a, b) -> a));
+        }
+
+        return new Map[]{userMap, deptNameMap};
+    }
+
+    /**
+     * 转换为详情响应DTO（带用户信息和部门信息缓存）
+     */
+    private ApprovalDetailResponse convertToDetailResponse(Approval approval, Map<Long, User> userMap, Map<Long, String> deptNameMap) {
         ApprovalDetailResponse response = new ApprovalDetailResponse();
         response.setId(approval.getId());
         response.setTitle(approval.getTitle());
@@ -521,7 +597,30 @@ public class ApprovalServiceImpl implements ApprovalService {
         Priority priority = Priority.fromCode(approval.getPriority());
         response.setPriorityName(priority != null ? priority.getLabel() : "");
 
+        // 设置用户名称和部门名称
+        User applicant = userMap.get(approval.getApplicantId());
+        if (applicant != null) {
+            response.setApplicantName(applicant.getName());
+            response.setDeptName(deptNameMap.getOrDefault(applicant.getDeptId(), ""));
+        }
+
+        User currentApprover = userMap.get(approval.getCurrentApproverId());
+        if (currentApprover != null) {
+            response.setCurrentApproverName(currentApprover.getName());
+        }
+
         return response;
+    }
+
+    /**
+     * 转换为详情响应DTO（单个查询，用于getById等场景）
+     */
+    @SuppressWarnings("unchecked")
+    private ApprovalDetailResponse convertToDetailResponse(Approval approval) {
+        Map<Long, ?>[] result = batchQueryUsersAndDepts(Collections.singletonList(approval));
+        Map<Long, User> userMap = (Map<Long, User>) result[0];
+        Map<Long, String> deptNameMap = (Map<Long, String>) result[1];
+        return convertToDetailResponse(approval, userMap, deptNameMap);
     }
 
     /**

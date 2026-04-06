@@ -11,9 +11,9 @@ import java.util.List;
 public class PageResult<T> {
 
     /**
-     * 当前页数据列表
+     * 当前页数据列表（与前端保持一致，使用records）
      */
-    private List<T> list;
+    private List<T> records;
 
     /**
      * 总记录数
@@ -21,27 +21,27 @@ public class PageResult<T> {
     private Long total;
 
     /**
-     * 当前页码
+     * 当前页码（与前端保持一致，使用current）
      */
-    private Integer pageNum;
+    private Integer current;
 
     /**
-     * 每页大小
+     * 每页大小（与前端保持一致，使用size）
      */
-    private Integer pageSize;
+    private Integer size;
 
     /**
      * 总页数
      */
     private Integer pages;
 
-    public static <T> PageResult<T> of(List<T> list, Long total, Integer pageNum, Integer pageSize) {
+    public static <T> PageResult<T> of(List<T> records, Long total, Integer current, Integer size) {
         PageResult<T> result = new PageResult<>();
-        result.setList(list);
+        result.setRecords(records);
         result.setTotal(total);
-        result.setPageNum(pageNum);
-        result.setPageSize(pageSize);
-        result.setPages((int) Math.ceil((double) total / pageSize));
+        result.setCurrent(current);
+        result.setSize(size);
+        result.setPages((int) Math.ceil((double) total / size));
         return result;
     }
 }
