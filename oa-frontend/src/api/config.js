@@ -29,23 +29,48 @@ apiClient.interceptors.response.use(
     // 后端返回格式: { code, message, data, timestamp }
     const { code, message, data } = response.data
     if (code !== 200) {
+      // 业务逻辑错误
       return Promise.reject(new Error(message || '请求失败'))
     }
     return data
   },
   (error) => {
+    // 网络或服务器错误
     if (error.response) {
+      // 服务器返回了错误响应
       const { status, data } = error.response
-      if (status === 401) {
-        // Token 过期，清除登录状态并跳转登录页
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
-        return Promise.reject(new Error('登录已过期，请重新登录'))
+      switch (status) {
+        case 400:
+          error.message = data?.message || '请求参数错误'
+          break
+        case 401:
+          error.message = '登录已过期，请重新登录'
+          // 清除本地认证信息
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          // 跳转到登录页
+          window.location.href = '/login'
+          break
+        case 403:
+          error.message = '没有权限执行此操作'
+          break
+        case 404:
+          error.message = '请求的资源不存在'
+          break
+        case 500:
+          error.message = '服务器内部错误，请稍后重试'
+          break
+        default:
+          error.message = data?.message || `请求失败(${status})`
       }
-      return Promise.reject(new Error(data?.message || `请求错误: ${status}`))
+    } else if (error.request) {
+      // 请求发送但没有收到响应
+      error.message = '网络连接失败，请检查网络设置'
+    } else {
+      // 请求配置错误
+      error.message = '请求配置错误'
     }
-    return Promise.reject(new Error('网络错误，请检查连接'))
+    return Promise.reject(error)
   }
 )
 

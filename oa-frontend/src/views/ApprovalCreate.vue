@@ -184,16 +184,51 @@ const form = ref({
   destination: ''
 })
 
-function handleSubmit() {
-  const approval = approvalStore.addApproval({
-    ...form.value,
-    applicant: authStore.currentUser?.name || '未知用户',
-    applicantId: authStore.currentUser?.id,
-    department: authStore.currentUser?.department || '未知部门',
-    currentApprover: '张经理'
-  })
-  
-  router.push(`/approval/detail/${approval.id}`)
+// 类型映射 (前端字符串 -> 后端数值)
+const typeMap = {
+  'leave': 1,
+  'expense': 2,
+  'purchase': 3,
+  'overtime': 4,
+  'travel': 5
+}
+
+// 优先级映射 (前端字符串 -> 后端数值)
+const priorityMap = {
+  'low': 0,
+  'normal': 1,
+  'high': 2
+}
+
+async function handleSubmit() {
+  try {
+    // 构建符合后端 API 格式的请求数据
+    const approvalData = {
+      title: form.value.title,
+      type: typeMap[form.value.type],
+      priority: priorityMap[form.value.priority],
+      content: form.value.content,
+      formData: {
+        startDate: form.value.startDate,
+        endDate: form.value.endDate,
+        amount: form.value.amount,
+        destination: form.value.destination
+      }
+    }
+
+    const result = await approvalStore.createApproval(approvalData)
+
+    if (result.success) {
+      // 后端返回的是ID数字，不是对象
+      router.push(`/approval/detail/${result.data}`)
+    } else {
+      // 显示错误提示
+      alert('创建失败：' + result.message)
+    }
+  } catch (error) {
+    console.error('创建审批失败:', error)
+    alert('创建失败，请稍后重试')
+  }
 }
 
 function handleSaveDraft() {

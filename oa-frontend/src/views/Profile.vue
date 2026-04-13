@@ -133,9 +133,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useApprovalStore } from '@/stores/approval'
+import { useUserStore } from '@/stores/user'
 
 const authStore = useAuthStore()
 const approvalStore = useApprovalStore()
+const userStore = useUserStore()
 
 const form = ref({
   name: '',
@@ -172,24 +174,63 @@ function getRoleLabel(role) {
   return labels[role] || role
 }
 
-function handleSave() {
-  alert('保存成功！')
+async function handleSave() {
+  const profileData = {
+    name: form.value.name,
+    phone: form.value.phone,
+    email: form.value.email,
+    department: form.value.department
+  }
+
+  const result = await userStore.updateProfile(profileData)
+  if (result.success) {
+    alert('保存成功！')
+    // 刷新用户信息
+    await authStore.fetchCurrentUser()
+  } else {
+    alert('保存失败：' + result.message)
+  }
 }
 
 function resetForm() {
   initForm()
 }
 
-function handleChangePassword() {
-  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-    alert('两次输入的密码不一致')
+async function handleChangePassword() {
+  // 前端验证
+  if (!passwordForm.value.currentPassword) {
+    alert('请输入原密码')
     return
   }
-  alert('密码修改成功！')
-  passwordForm.value = {
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+  if (!passwordForm.value.newPassword) {
+    alert('请输入新密码')
+    return
+  }
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    alert('两次输入的新密码不一致')
+    return
+  }
+  if (passwordForm.value.newPassword.length < 6) {
+    alert('新密码长度不能少于6位')
+    return
+  }
+
+  // 调用 API
+  const result = await userStore.changePassword({
+    oldPassword: passwordForm.value.currentPassword,
+    newPassword: passwordForm.value.newPassword
+  })
+
+  if (result.success) {
+    alert('密码修改成功！')
+    // 清空表单
+    passwordForm.value = {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    }
+  } else {
+    alert('密码修改失败：' + result.message)
   }
 }
 

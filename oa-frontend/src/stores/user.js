@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import apiClient from '@/api/config.js'
 
 export const useUserStore = defineStore('user', () => {
   const users = ref([
@@ -83,6 +84,35 @@ export const useUserStore = defineStore('user', () => {
     return false
   }
 
+  // 更新个人信息
+  async function updateProfile(profileData) {
+    try {
+      await apiClient.put('/users/profile', profileData)
+      // 更新本地存储的用户信息
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+      localStorage.setItem('user', JSON.stringify({
+        ...currentUser,
+        ...profileData
+      }))
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 修改密码
+  async function changePassword(passwordData) {
+    try {
+      await apiClient.put('/users/password', passwordData)
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || '修改密码失败'
+      }
+    }
+  }
+
   return {
     users,
     roles,
@@ -95,6 +125,8 @@ export const useUserStore = defineStore('user', () => {
     getRoleById,
     addRole,
     updateRole,
-    deleteRole
+    deleteRole,
+    updateProfile,
+    changePassword
   }
 })
