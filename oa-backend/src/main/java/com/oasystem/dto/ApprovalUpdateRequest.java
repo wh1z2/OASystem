@@ -3,6 +3,8 @@ package com.oasystem.dto;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
+import java.util.Map;
+
 /**
  * 审批工单更新请求DTO
  */
@@ -26,9 +28,9 @@ public class ApprovalUpdateRequest {
     private String content;
 
     /**
-     * 表单数据（JSON格式）
+     * 表单数据（JSON对象）
      */
-    private String formData;
+    private Map<String, Object> formData;
 
     /**
      * 当前审批人ID

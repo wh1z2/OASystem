@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.Map;
+
 /**
  * 审批工单创建请求DTO
  */
@@ -33,9 +35,9 @@ public class ApprovalCreateRequest {
     private String content;
 
     /**
-     * 表单数据（JSON格式）
+     * 表单数据（JSON对象）
      */
-    private String formData;
+    private Map<String, Object> formData;
 
     /**
      * 当前审批人ID（提交时指定）

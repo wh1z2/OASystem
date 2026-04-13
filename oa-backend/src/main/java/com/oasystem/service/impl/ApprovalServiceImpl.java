@@ -111,7 +111,10 @@ public class ApprovalServiceImpl implements ApprovalService {
         approval.setStatus(ApprovalStatus.DRAFT.getCode());
         approval.setPriority(request.getPriority());
         approval.setContent(request.getContent());
-        approval.setFormData(request.getFormData());
+        // 将Map转为JSON字符串存储
+        if (request.getFormData() != null) {
+            approval.setFormData(JSON.toJSONString(request.getFormData()));
+        }
         approval.setCurrentApproverId(request.getCurrentApproverId());
 
         approvalMapper.insert(approval);
@@ -141,7 +144,10 @@ public class ApprovalServiceImpl implements ApprovalService {
         approval.setTitle(request.getTitle());
         approval.setPriority(request.getPriority());
         approval.setContent(request.getContent());
-        approval.setFormData(request.getFormData());
+        // 将Map转为JSON字符串存储
+        if (request.getFormData() != null) {
+            approval.setFormData(JSON.toJSONString(request.getFormData()));
+        }
 
         int rows = approvalMapper.updateById(approval);
         log.info("更新审批工单成功：id={}", id);
