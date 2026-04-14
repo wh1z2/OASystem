@@ -25,4 +25,10 @@ public interface ApprovalHistoryMapper extends BaseMapper<ApprovalHistory> {
      */
     @Select("SELECT * FROM oa_approval_history WHERE approver_id = #{approverId} ORDER BY create_time DESC")
     List<ApprovalHistory> selectByApproverId(@Param("approverId") Long approverId);
+
+    /**
+     * 统计审批人已处理的工单数量（去重）
+     */
+    @Select("SELECT COUNT(DISTINCT approval_id) FROM oa_approval_history WHERE approver_id = #{approverId}")
+    Long countDoneByApproverId(@Param("approverId") Long approverId);
 }

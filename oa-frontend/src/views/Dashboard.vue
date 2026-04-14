@@ -162,42 +162,56 @@ import { useApprovalStore } from '@/stores/approval'
 const router = useRouter()
 const approvalStore = useApprovalStore()
 
-// 页面加载时获取当前用户的待办列表（用于统计和展示）
+// 页面加载时获取统计数据和待办列表
 onMounted(() => {
+  approvalStore.fetchDashboardStatistics()
   approvalStore.fetchTodoList()
 })
 
-const stats = computed(() => ({
-  // 使用后端返回的待办总数（通过 fetchTodoList 获取）
-  pending: approvalStore.pendingCount,
-  // 其他统计数据暂时使用 approvals 数组（后续需要单独的统计接口）
-  approved: approvalStore.approvedApprovals.length,
-  rejected: approvalStore.rejectedApprovals.length,
-  total: approvalStore.approvals.length
-}))
+const stats = computed(() => {
+  const ds = approvalStore.dashboardStatistics
+  if (!ds) {
+    return { pending: 0, approved: 0, rejected: 0, total: 0 }
+  }
+  return {
+    pending: ds.pendingCount || 0,
+    approved: ds.approvedCount || 0,
+    rejected: ds.rejectedCount || 0,
+    total: ds.myApprovalCount || 0
+  }
+})
 
 const pendingList = computed(() => approvalStore.pendingApprovals.slice(0, 5))
 
+const typeLabels = {
+  leave: { label: '请假申请', color: '#3b82f6' },
+  expense: { label: '报销申请', color: '#22c55e' },
+  purchase: { label: '采购申请', color: '#f59e0b' },
+  overtime: { label: '加班申请', color: '#8b5cf6' },
+  travel: { label: '出差申请', color: '#ec4899' }
+}
+
+// 后端类型编码映射到前端字符串
+const backendTypeMap = {
+  1: 'leave',
+  2: 'expense',
+  3: 'purchase',
+  4: 'overtime',
+  5: 'travel'
+}
+
 const approvalTypes = computed(() => {
-  const types = {}
-  approvalStore.approvals.forEach(a => {
-    types[a.type] = (types[a.type] || 0) + 1
+  const ds = approvalStore.dashboardStatistics
+  const distribution = ds?.approvalTypeDistribution || []
+  return distribution.map(item => {
+    const key = backendTypeMap[item.type] || item.type
+    return {
+      name: key,
+      label: typeLabels[key]?.label || item.typeName || key,
+      color: typeLabels[key]?.color || '#6b7280',
+      count: item.count || 0
+    }
   })
-  
-  const typeLabels = {
-    leave: { label: '请假申请', color: '#3b82f6' },
-    expense: { label: '报销申请', color: '#22c55e' },
-    purchase: { label: '采购申请', color: '#f59e0b' },
-    overtime: { label: '加班申请', color: '#8b5cf6' },
-    travel: { label: '出差申请', color: '#ec4899' }
-  }
-  
-  return Object.entries(types).map(([key, count]) => ({
-    name: key,
-    label: typeLabels[key]?.label || key,
-    color: typeLabels[key]?.color || '#6b7280',
-    count
-  }))
 })
 
 function getPriorityLabel(priority) {

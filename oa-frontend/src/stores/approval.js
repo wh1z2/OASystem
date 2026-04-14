@@ -42,6 +42,10 @@ export const useApprovalStore = defineStore('approval', () => {
   })
   // 待办总数（独立存储，不受其他列表分页影响）
   const todoTotal = ref(0)
+  const doneTotal = ref(0)
+  const myTotal = ref(0)
+  // 工作台统计数据（一次性返回）
+  const dashboardStatistics = ref(null)
 
   // 计算属性 - 待办列表 (状态为 processing)
   const pendingApprovals = computed(() =>
@@ -57,6 +61,12 @@ export const useApprovalStore = defineStore('approval', () => {
   const rejectedApprovals = computed(() =>
     approvals.value.filter(a => a.status === 'returned')
   )
+
+  // 计算属性 - 已办数量
+  const doneCount = computed(() => doneTotal.value || 0)
+
+  // 计算属性 - 我的申请数量
+  const myApprovalCount = computed(() => myTotal.value || 0)
 
   // 转换后端数据为前端格式
   function transformApproval(item) {
@@ -228,6 +238,8 @@ export const useApprovalStore = defineStore('approval', () => {
       })
       approvals.value = records.map(transformApproval)
       pagination.value = { current, size, total }
+      // 独立存储已办总数，用于侧边栏徽章（不受其他分页影响）
+      doneTotal.value = total
       return { success: true, data: approvals.value }
     } catch (error) {
       return { success: false, message: error.message }
@@ -245,7 +257,20 @@ export const useApprovalStore = defineStore('approval', () => {
       })
       approvals.value = records.map(transformApproval)
       pagination.value = { current, size, total }
+      // 独立存储我的申请总数，用于侧边栏徽章（不受其他分页影响）
+      myTotal.value = total
       return { success: true, data: approvals.value }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 获取工作台统计数据
+  async function fetchDashboardStatistics() {
+    try {
+      const data = await apiClient.get('/approvals/statistics')
+      dashboardStatistics.value = data
+      return { success: true, data }
     } catch (error) {
       return { success: false, message: error.message }
     }
@@ -279,10 +304,15 @@ export const useApprovalStore = defineStore('approval', () => {
     approvalHistory,
     pagination,
     todoTotal,
+    doneTotal,
+    myTotal,
+    dashboardStatistics,
     pendingApprovals,
     approvedApprovals,
     rejectedApprovals,
     pendingCount,
+    doneCount,
+    myApprovalCount,
     fetchApprovals,
     fetchApprovalById,
     createApproval,
@@ -296,6 +326,7 @@ export const useApprovalStore = defineStore('approval', () => {
     fetchTodoList,
     fetchDoneList,
     fetchMyApprovals,
-    fetchApprovalHistory
+    fetchApprovalHistory,
+    fetchDashboardStatistics
   }
 })

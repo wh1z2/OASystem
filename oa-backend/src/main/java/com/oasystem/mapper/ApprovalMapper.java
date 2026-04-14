@@ -37,4 +37,28 @@ public interface ApprovalMapper extends BaseMapper<Approval> {
      */
     @Select("SELECT COUNT(*) FROM oa_approval WHERE current_approver_id = #{approverId} AND status = 1")
     Long countTodoByApproverId(@Param("approverId") Long approverId);
+
+    /**
+     * 查询用户已通过的工单数量
+     */
+    @Select("SELECT COUNT(*) FROM oa_approval WHERE applicant_id = #{applicantId} AND status = 2")
+    Long countApprovedByApplicantId(@Param("applicantId") Long applicantId);
+
+    /**
+     * 查询用户已打回的工单数量
+     */
+    @Select("SELECT COUNT(*) FROM oa_approval WHERE applicant_id = #{applicantId} AND status = 3")
+    Long countRejectedByApplicantId(@Param("applicantId") Long applicantId);
+
+    /**
+     * 查询用户发起的工单总数
+     */
+    @Select("SELECT COUNT(*) FROM oa_approval WHERE applicant_id = #{applicantId}")
+    Long countMyApprovalsByApplicantId(@Param("applicantId") Long applicantId);
+
+    /**
+     * 按类型统计用户发起的工单分布
+     */
+    @Select("SELECT type, COUNT(*) as count FROM oa_approval WHERE applicant_id = #{applicantId} GROUP BY type")
+    List<java.util.Map<String, Object>> countTypeDistributionByApplicantId(@Param("applicantId") Long applicantId);
 }

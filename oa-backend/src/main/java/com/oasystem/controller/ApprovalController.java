@@ -158,6 +158,19 @@ public class ApprovalController {
     }
 
     /**
+     * 获取工作台统计数据
+     */
+    @GetMapping("/statistics")
+    public Result<DashboardStatisticsResponse> getDashboardStatistics() {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.unauthorized("用户未登录");
+        }
+        DashboardStatisticsResponse statistics = approvalService.getDashboardStatistics(userId);
+        return Result.success(statistics);
+    }
+
+    /**
      * 获取当前用户ID
      */
     private Long getCurrentUserId() {

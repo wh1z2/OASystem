@@ -540,6 +540,71 @@ public class ApprovalServiceImpl implements ApprovalService {
         return PageResult.of(responses, total, query.getPageNum(), query.getPageSize());
     }
 
+    @Override
+    public DashboardStatisticsResponse getDashboardStatistics(Long userId) {
+        if (userId == null) {
+            log.warn("获取工作台统计数据失败：当前用户ID为空");
+            return buildEmptyStatisticsResponse();
+        }
+
+        DashboardStatisticsResponse response = new DashboardStatisticsResponse();
+
+        // 待办数量（当前用户作为审批人，状态为审批中）
+        Long pendingCount = approvalMapper.countTodoByApproverId(userId);
+        response.setPendingCount(pendingCount != null ? pendingCount : 0L);
+
+        // 已通过数量（当前用户作为申请人的已通过工单）
+        Long approvedCount = approvalMapper.countApprovedByApplicantId(userId);
+        response.setApprovedCount(approvedCount != null ? approvedCount : 0L);
+
+        // 已拒绝数量（当前用户作为申请人的已打回工单）
+        Long rejectedCount = approvalMapper.countRejectedByApplicantId(userId);
+        response.setRejectedCount(rejectedCount != null ? rejectedCount : 0L);
+
+        // 我的申请总数
+        Long myApprovalCount = approvalMapper.countMyApprovalsByApplicantId(userId);
+        response.setMyApprovalCount(myApprovalCount != null ? myApprovalCount : 0L);
+
+        // 已办数量（当前用户在审批历史中处理过的去重工单数）
+        Long doneCount = approvalHistoryMapper.countDoneByApproverId(userId);
+        response.setDoneCount(doneCount != null ? doneCount : 0L);
+
+        // 审批类型分布（按当前用户发起的申请统计）
+        List<java.util.Map<String, Object>> typeDistribution = approvalMapper.countTypeDistributionByApplicantId(userId);
+        List<DashboardStatisticsResponse.TypeDistributionItem> distributionItems = new ArrayList<>();
+        if (typeDistribution != null) {
+            for (java.util.Map<String, Object> item : typeDistribution) {
+                DashboardStatisticsResponse.TypeDistributionItem distributionItem = new DashboardStatisticsResponse.TypeDistributionItem();
+                Integer typeCode = item.get("type") instanceof Number ? ((Number) item.get("type")).intValue() : null;
+                Long count = item.get("count") instanceof Number ? ((Number) item.get("count")).longValue() : 0L;
+                distributionItem.setType(typeCode);
+                distributionItem.setTypeName(typeCode != null ? ApprovalType.fromCode(typeCode).getLabel() : "");
+                distributionItem.setCount(count);
+                distributionItems.add(distributionItem);
+            }
+        }
+        response.setApprovalTypeDistribution(distributionItems);
+
+        log.info("获取工作台统计数据成功：userId={}, pending={}, approved={}, rejected={}, my={}, done={}",
+                userId, response.getPendingCount(), response.getApprovedCount(),
+                response.getRejectedCount(), response.getMyApprovalCount(), response.getDoneCount());
+        return response;
+    }
+
+    /**
+     * 构建空的统计数据响应
+     */
+    private DashboardStatisticsResponse buildEmptyStatisticsResponse() {
+        DashboardStatisticsResponse response = new DashboardStatisticsResponse();
+        response.setPendingCount(0L);
+        response.setApprovedCount(0L);
+        response.setRejectedCount(0L);
+        response.setMyApprovalCount(0L);
+        response.setDoneCount(0L);
+        response.setApprovalTypeDistribution(Collections.emptyList());
+        return response;
+    }
+
     /**
      * 批量查询工单相关的用户信息和部门信息
      * 返回一个包含两个Map的数组：第一个是用户Map，第二个是部门Map

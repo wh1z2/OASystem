@@ -119,4 +119,11 @@ public interface ApprovalService {
      * @return 分页结果
      */
     PageResult<ApprovalDetailResponse> getMyApprovals(Long applicantId, ApprovalQuery query);
+
+    /**
+     * 获取工作台统计数据
+     * @param userId 当前用户ID
+     * @return 统计数据
+     */
+    DashboardStatisticsResponse getDashboardStatistics(Long userId);
 }
