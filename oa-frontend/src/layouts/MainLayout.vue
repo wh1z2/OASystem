@@ -137,7 +137,8 @@ const approvalStore = useApprovalStore()
 const showUserMenu = ref(false)
 const userMenuRef = ref(null)
 
-const pendingCount = computed(() => approvalStore.pendingApprovals.length)
+// 使用后端返回的待办总数（通过 fetchTodoList 获取）
+const pendingCount = computed(() => approvalStore.pendingCount)
 
 const pageTitle = computed(() => {
   const titles = {
@@ -176,6 +177,8 @@ function handleClickOutside(event) {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  // 获取当前用户的待办列表，确保待办计数正确
+  approvalStore.fetchTodoList()
 })
 
 onUnmounted(() => {

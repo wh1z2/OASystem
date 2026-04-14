@@ -162,13 +162,15 @@ import { useApprovalStore } from '@/stores/approval'
 const router = useRouter()
 const approvalStore = useApprovalStore()
 
-// 页面加载时获取所有审批数据
+// 页面加载时获取当前用户的待办列表（用于统计和展示）
 onMounted(() => {
-  approvalStore.fetchApprovals()
+  approvalStore.fetchTodoList()
 })
 
 const stats = computed(() => ({
-  pending: approvalStore.pendingApprovals.length,
+  // 使用后端返回的待办总数（通过 fetchTodoList 获取）
+  pending: approvalStore.pendingCount,
+  // 其他统计数据暂时使用 approvals 数组（后续需要单独的统计接口）
   approved: approvalStore.approvedApprovals.length,
   rejected: approvalStore.rejectedApprovals.length,
   total: approvalStore.approvals.length

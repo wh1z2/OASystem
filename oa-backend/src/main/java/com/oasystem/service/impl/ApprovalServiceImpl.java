@@ -412,6 +412,12 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     @Override
     public PageResult<ApprovalDetailResponse> getTodoList(Long approverId, ApprovalQuery query) {
+        // 参数校验：当前用户ID不能为空
+        if (approverId == null) {
+            log.warn("获取待办列表失败：当前用户ID为空");
+            return PageResult.of(Collections.emptyList(), 0L, query.getPageNum(), query.getPageSize());
+        }
+
         // 查询待办工单（审批中且当前审批人是该用户）
         LambdaQueryWrapper<Approval> wrapper = Wrappers.lambdaQuery();
         wrapper.eq(Approval::getCurrentApproverId, approverId);

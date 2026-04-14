@@ -266,6 +266,9 @@ export const useApprovalStore = defineStore('approval', () => {
     }
   }
 
+  // 待办总数（从后端返回的 total 中获取）
+  const pendingCount = computed(() => pagination.value.total || 0)
+
   return {
     approvals,
     currentApproval,
@@ -274,6 +277,7 @@ export const useApprovalStore = defineStore('approval', () => {
     pendingApprovals,
     approvedApprovals,
     rejectedApprovals,
+    pendingCount,
     fetchApprovals,
     fetchApprovalById,
     createApproval,
