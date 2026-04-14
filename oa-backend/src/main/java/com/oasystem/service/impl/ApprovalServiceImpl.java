@@ -553,12 +553,12 @@ public class ApprovalServiceImpl implements ApprovalService {
         Long pendingCount = approvalMapper.countTodoByApproverId(userId);
         response.setPendingCount(pendingCount != null ? pendingCount : 0L);
 
-        // 已通过数量（当前用户作为申请人的已通过工单）
-        Long approvedCount = approvalMapper.countApprovedByApplicantId(userId);
+        // 已通过数量（当前用户作为审批人，审批通过的去重工单数）
+        Long approvedCount = approvalHistoryMapper.countApprovedByApproverId(userId);
         response.setApprovedCount(approvedCount != null ? approvedCount : 0L);
 
-        // 已拒绝数量（当前用户作为申请人的已打回工单）
-        Long rejectedCount = approvalMapper.countRejectedByApplicantId(userId);
+        // 已拒绝数量（当前用户作为审批人，审批拒绝的去重工单数）
+        Long rejectedCount = approvalHistoryMapper.countRejectedByApproverId(userId);
         response.setRejectedCount(rejectedCount != null ? rejectedCount : 0L);
 
         // 我的申请总数
