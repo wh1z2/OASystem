@@ -325,7 +325,77 @@
 | returned | 3 | 已打回 |
 | revoked | 4 | 已撤销 |
 
-**验证状态**: ✅ 前端接口对接完成，等待用户验证测试
+**验证状态**:
+
+✅ 前端接口对接完成，等待用户验证测试
+
+❌ 部分测试不通过，需继续完善
+
+---
+
+### 阶段七补充：前端接口对接完善与统计接口 ✅
+
+**完成日期**: 2026-04-14
+
+**执行内容**:
+
+#### 1. 查询与分页优化
+- ✅ 修正 `PageResult` 分页响应结构，统一前后端分页字段格式
+- ✅ 优化 `ApprovalQuery` 查询条件，支持更灵活的列表筛选
+- ✅ 重构 `ApprovalServiceImpl` 中的列表查询逻辑，批量查询关联用户和部门信息减少N+1问题
+- ✅ 修复 `ApprovalDetailResponse` 字段缺失问题，确保详情页数据完整
+
+#### 2. 审批结果落表修复
+- ✅ 修复审批操作后工单状态未正确持久化到数据库的bug
+- ✅ `Approval` 实体增加 `@TableField` 注解解决字段映射异常
+- ✅ `ApprovalStateMachineHelper` 增加状态变更审计日志
+- ✅ `ApprovalServiceImpl` 完善审批操作后的数据刷新逻辑
+
+#### 3. 表单数据类型调整
+- ✅ `ApprovalCreateRequest` / `ApprovalUpdateRequest` 的 `formData` 字段类型从 `String` 改为 `Map<String, Object>`
+- ✅ `ApprovalServiceImpl` 适配 FastJSON2 的 `JSONObject` 序列化/反序列化
+- ✅ 前端 `ApprovalCreate.vue` 表单设计器对接后端，支持动态表单数据提交
+
+#### 4. 前端功能增强
+- ✅ `ApprovalDetail.vue` 新增"提交审批"按钮（仅草稿状态显示）
+- ✅ `Login.vue` 密码输入框新增显示/隐藏切换（小眼睛图标）
+- ✅ `Profile.vue` 个人中心对接后端用户接口，支持信息展示和更新
+- ✅ `stores/user.js` 对接后端用户API
+
+#### 5. 待办/已办标识修复（状态隔离）
+- ✅ 修复侧边栏待办徽章被其他页面操作覆盖的问题
+- ✅ Pinia `approval.js` 中引入独立的 `todoTotal`、`doneTotal`、`myTotal` refs，与共享的 `pagination` 解耦
+- ✅ `MainLayout.vue` 侧边栏同步显示待办、已办、我的申请三个徽章计数
+- ✅ `Dashboard.vue` 待办统计改为直接使用 `todoTotal`，避免受分页切换影响
+
+#### 6. 工作台统计接口开发
+- ✅ 后端新增 `GET /approvals/statistics` 接口
+- ✅ 新增 `DashboardStatisticsResponse.java` 统一统计响应格式
+- ✅ 实现6项统计指标：待办数、已通过数、已拒绝数、我的申请数、已办数、审批类型分布
+- ✅ `ApprovalMapper` 新增申请人视角统计方法（总数、类型分布）
+- ✅ `ApprovalHistoryMapper` 新增审批人视角统计方法（已办数、通过数、拒绝数）
+- ✅ 前端 `Dashboard.vue` 对接统计接口，实时展示工作台数据
+
+#### 7. 统计视角修正（关键设计修正）
+- ✅ **设计修正**：工作台"已通过"和"已拒绝"统计从"申请人视角"切换为"审批人视角"
+- ✅ 旧逻辑：统计当前用户提交的申请中被通过/拒绝的数量（`oa_approval` 表按 `applicant_id` + `status` 查询）
+- ✅ 新逻辑：统计当前用户作为审批人执行过通过/拒绝操作的去重工单数量（`oa_approval_history` 表按 `approver_id` + `action` 查询，使用 `COUNT(DISTINCT approval_id)` 去重）
+- ✅ 此修正符合业务设计目标：Dashboard 展示的是当前用户的**操作成果**（通过了几个、拒绝了几个），而非**被操作结果**
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| Service 更新 | `oa-backend/service/impl/ApprovalServiceImpl.java` |
+| Mapper 更新 | `oa-backend/mapper/ApprovalMapper.java`, `oa-backend/mapper/ApprovalHistoryMapper.java` |
+| DTO 新增 | `oa-backend/dto/DashboardStatisticsResponse.java` |
+| Controller 更新 | `oa-backend/controller/ApprovalController.java` |
+| Store 更新 | `oa-frontend/src/stores/approval.js`, `oa-frontend/src/stores/user.js` |
+| 页面组件 | `oa-frontend/src/views/Dashboard.vue`, `oa-frontend/src/views/ApprovalDetail.vue`, `oa-frontend/src/views/ApprovalCreate.vue`, `oa-frontend/src/views/Login.vue`, `oa-frontend/src/views/Profile.vue` |
+| 布局组件 | `oa-frontend/src/layouts/MainLayout.vue` |
+| API 配置 | `oa-frontend/src/api/config.js` |
+| 文档新增 | `memory-bank/frontend-docking-implementation.md`, `memory-bank/frontend-docking-list.md` |
+
+**验证状态**: ✅ 工作台统计接口联调通过，待办/已办/我的申请徽章计数正确，审批结果落表正常
 
 ---
 
@@ -337,7 +407,7 @@
 - [x] 阶段四：用户认证模块实现 ✅
 - [x] 阶段五：COLA状态机集成 ✅
 - [x] 阶段六：审批流程核心功能 ✅
-- [x] 阶段七：前端接口对接 ✅
+- [ ] 阶段七：前端接口对接 
 - [ ] 阶段八：表单设计器实现
 - [ ] 阶段九：用户与角色管理
 - [ ] 阶段十：系统测试与优化
@@ -345,4 +415,4 @@
 
 ---
 
-*最后更新: 2026-04-05 (阶段六已完成：审批流程核心功能实现完成，包含工单CRUD、状态流转、4级权限层级、代审批、审批人权限校验、OpenAPI测试文档，冒烟测试通过)*
+*最后更新: 2026-04-06 (阶段七已部分完成，需要继续完善)*

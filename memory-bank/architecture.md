@@ -4,9 +4,9 @@
 
 ---
 
-## 1. 项目文档结构
+## 项目文档结构
 
-### 1.1 核心文档说明
+### 核心文档说明
 
 | 文件 | 作用 | 关键内容 |
 |------|------|----------|
@@ -16,7 +16,7 @@
 | `progress.md` | 进度记录 | 各阶段完成情况、环境信息、测试结果 |
 | `architecture.md` | 架构洞察 | 本文件，记录架构决策和文件作用 |
 
-### 1.2 文档引用关系
+### 文档引用关系
 ```
 product-design-document.md (需求基准)
             ↓
@@ -30,9 +30,9 @@ architecture.md (架构解释)
 
 ---
 
-## 2. 关键技术决策
+## 关键技术决策
 
-### 2.1 状态机设计 (COLA StateMachine)
+### 状态机设计 (COLA StateMachine)
 
 **决策**: 使用阿里巴巴 COLA 状态机作为工作流引擎
 
@@ -65,7 +65,7 @@ architecture.md (架构解释)
   4 = REVOKE(撤销)
 ```
 
-### 2.2 数据库表前缀规范
+### 数据库表前缀规范
 
 **决策**: 统一前缀区分表类型
 
@@ -74,7 +74,7 @@ architecture.md (架构解释)
 | `sys_` | 系统表（用户、角色、权限） | sys_user, sys_role |
 | `oa_` | 业务表（审批、历史、表单） | oa_approval, oa_approval_history |
 
-### 2.3 外键设计决策
+### 外键设计决策
 
 **决策**: 使用逻辑外键，不创建物理外键约束
 
@@ -90,7 +90,7 @@ architecture.md (架构解释)
 - 在字段注释中标注关联关系
 - Service层通过事务保证数据完整性
 
-### 2.4 枚举存储方案
+### 枚举存储方案
 
 **决策**: 使用 TINYINT 存储枚举值，而非 VARCHAR 字符串
 
@@ -109,13 +109,13 @@ architecture.md (架构解释)
 | ApprovalType | TINYINT | 1=LEAVE, 2=EXPENSE, 3=PURCHASE, 4=OVERTIME, 5=TRAVEL |
 | Priority | TINYINT | 0=LOW, 1=NORMAL, 2=HIGH |
 
-### 2.5 审批人逻辑
+### 审批人逻辑
 
 **决策**: 单人审批即流转
 
 **说明**: 一个工单可配置多个审批人，但只要其中一人审批，工单状态即发生流转。暂不支持会签（多人同时审批通过才流转）。
 
-### 2.6 权限系统设计 (4级权限层级)
+### 权限系统设计 (4级权限层级)
 
 **决策**: 实现4级审批权限层级，支持代审批场景
 
@@ -153,7 +153,7 @@ Level 4: 无权限 (DENIED)
 | PROXY_ADMIN | 2 | 管理员代审批 | 是 |
 | PROXY_MANAGER | 3 | 部门经理代审批 | 是 |
 
-### 2.7 审批人指定权限校验
+### 审批人指定权限校验
 
 **决策**: 在指定审批人时校验其权限，而非在执行审批时校验
 
@@ -170,7 +170,7 @@ Level 4: 无权限 (DENIED)
 
 **异常提示**: "指定的审批人无审批权限，请选择管理员或部门经理作为审批人"
 
-### 2.8 数据语言规范
+### 数据语言规范
 
 **决策**: 业务数据使用中文，技术术语使用英文
 
@@ -187,7 +187,7 @@ Level 4: 无权限 (DENIED)
 
 ---
 
-## 3. 项目目录结构
+## 项目目录结构
 
 ### 3.1 整体结构
 ```
@@ -198,7 +198,7 @@ OASystem/
 └── CLAUDE.md             # Claude Code 工作指导
 ```
 
-### 3.2 后端目录规划 (阶段三创建)
+### 后端目录规划 (阶段三创建)
 
 ```
 oa-backend/
@@ -246,7 +246,7 @@ oa-backend/
 └── pom.xml                            # Maven配置
 ```
 
-### 3.3 目录职责说明
+### 目录职责说明
 
 | 目录 | 职责 | 设计原则 |
 |------|------|----------|
@@ -257,7 +257,7 @@ oa-backend/
 | `dto/` | 接口请求/响应的数据对象 | 与entity分离，按需定义 |
 | `enums/` | 状态、事件等枚举定义 | 包含中文描述字段 |
 | `config/` | 框架配置、第三方组件配置 | 按组件分文件 |
-### 3.6 数据库文件 (阶段二已创建)
+### 数据库文件 (阶段二已创建)
 
 | 文件 | 路径 | 作用 |
 |------|------|------|
@@ -280,7 +280,7 @@ mysql -u root -p < database/init.sql
 
 ---
 
-### 3.4 阶段四新增文件 (用户认证模块)
+### 阶段四新增文件 (用户认证模块)
 
 | 文件 | 路径 | 作用 |
 |------|------|------|
@@ -307,7 +307,7 @@ mysql -u root -p < database/init.sql
 | `auth-api-tests.openapi.yaml` | `oa-backend/docs/api-test/auth-api-tests.openapi.yaml` | OpenAPI 3.0.3 接口测试文档，含多个测试场景的 example。可直接导入 Apifox 生成测试用例 |
 | `JwtTokenUtilTest.java` | `oa-backend/test/java/com/oasystem/util/JwtTokenUtilTest.java` | JWT 工具单元测试。覆盖正常 token 生成解析、短时效 token 过期验证、非法 token 拒绝、剩余时间计算等场景 |
 
-### 3.5 阶段五新增文件 (COLA状态机集成)
+### 阶段五新增文件 (COLA状态机集成)
 
 | 文件 | 路径 | 作用 |
 |------|------|------|
@@ -325,7 +325,7 @@ mysql -u root -p < database/init.sql
 | `StateMachineConfigTest.java` | `oa-backend/test/config/StateMachineConfigTest.java` | 状态机集成测试（13个测试用例）。验证6条正常流转规则和6条非法/权限不足场景 |
 | `ApprovalStateMachineTest.java` | `oa-backend/test/statemachine/ApprovalStateMachineTest.java` | 状态机辅助类单元测试（12个测试用例）。验证3个条件检查和5个动作执行 |
 
-### 3.7 阶段七新增文件 (前端接口对接)
+### 阶段七新增文件 (前端接口对接)
 
 | 文件 | 路径 | 作用 |
 |------|------|------|
@@ -344,7 +344,7 @@ mysql -u root -p < database/init.sql
 | **构建配置更新** |||
 | `vite.config.js` (更新) | `oa-frontend/vite.config.js` | 添加代理配置，将 `/api` 请求转发到 `http://localhost:8080`，支持路径重写 |
 
-### 3.6 阶段六新增文件 (审批流程核心功能)
+### 阶段六新增文件 (审批流程核心功能)
 
 | 文件 | 路径 | 作用 |
 |------|------|------|
@@ -366,7 +366,7 @@ mysql -u root -p < database/init.sql
 | **测试文档** |||
 | `approval-api-tests.openapi.yaml` | `oa-backend/docs/api-test/approval-api-tests.openapi.yaml` | 审批模块OpenAPI测试文档（v1.1.0）。包含14个接口的详细定义、4级权限层级说明、代审批场景示例、多级权限测试用例，可直接导入Apifox |
 
-### 3.6 后端基础文件 (阶段三创建)
+### 后端基础文件 (阶段三创建)
 
 | 文件 | 路径 | 作用 |
 |------|------|------|
@@ -391,7 +391,7 @@ mysql -u root -p < database/init.sql
 | `application-dev.yml` | `oa-backend/resources/application-dev.yml` | 开发环境配置，包含MySQL连接、Hikari连接池、MyBatis-Plus配置 |
 | `pom.xml` | `oa-backend/pom.xml` | Maven构建配置，定义依赖版本和构建插件 |
 
-### 3.7 实体类详细说明
+### 实体类详细说明
 
 #### User 实体类
 ```
@@ -440,9 +440,9 @@ oa_form_template 表的Java映射 - 表单设计器存储
 
 ---
 
-## 4. 关键技术点
+## 关键技术点
 
-### 4.1 统一响应格式
+### 统一响应格式
 
 所有API返回统一格式的JSON:
 ```json
@@ -454,7 +454,7 @@ oa_form_template 表的Java映射 - 表单设计器存储
 }
 ```
 
-### 4.2 认证方案
+### 认证方案
 
 **阶段四已落地实现**：基于 Spring Security 6.x + JWT (jjwt 0.12.3) 的无状态认证架构。
 
@@ -480,7 +480,7 @@ oa_form_template 表的Java映射 - 表单设计器存储
 5. `JwtAuthenticationFilter` 校验 token 有效性，将用户及权限信息注入 `SecurityContext`
 6. 控制器/业务层通过 `SecurityContextHolder` 获取当前登录用户
 
-### 4.3 状态机设计 (COLA StateMachine 5.0)
+### 状态机设计 (COLA StateMachine 5.0)
 
 **阶段五已落地实现**：基于阿里巴巴 COLA 状态机 5.0 的审批流程引擎。
 
@@ -526,7 +526,7 @@ if (newStatus == currentStatus) {
 }
 ```
 
-### 4.4 状态机上下文
+### 状态机上下文
 
 ```java
 @Data
@@ -538,7 +538,7 @@ public class ApprovalContext {
 }
 ```
 
-### 4.5 权限系统设计 (阶段六实现)
+### 权限系统设计 (阶段六实现)
 
 **4级权限层级架构**:
 
@@ -603,14 +603,14 @@ public class ApprovalContext {
 
 ---
 
-## 5. 开发规范
+## 开发规范
 
-### 5.1 代码组织原则
+### 代码组织原则
 - 单一职责：每个类只做一件事
 - 文件大小：单个文件不超过500行，超过需拆分
 - 命名规范：使用英文，避免拼音，遵循Java/Spring惯例
 
-### 5.2 数据库规范
+### 数据库规范
 - 所有表使用 InnoDB 引擎
 - 字符集统一使用 utf8mb4
 - 时间字段使用 DATETIME，带默认 CURRENT_TIMESTAMP
@@ -618,4 +618,108 @@ public class ApprovalContext {
 
 ---
 
-*最后更新: 2026-04-06 (阶段七完成：前端接口对接已完成，包括代理配置、axios配置、认证store更新、审批store更新、页面组件接口对接)*
+*最后更新: 2026-04-14 (阶段七补充完成：工作台统计接口、状态隔离修复、审批结果落表修复、表单类型调整)*
+
+---
+
+## 阶段七补充：架构洞察
+
+### Pinia Store 状态隔离模式
+
+**问题背景**：
+`approval.js` 最初使用单一的 `approvals` ref 和 `pagination` ref 来存储所有列表数据。当用户在待办列表、已办列表、我的申请列表之间切换时，后一次请求会覆盖前一次的 `approvals` 和 `pagination`，导致侧边栏的徽章计数（基于 `approvals.length` 或 `pagination.total`）出现错误。
+
+**解决方案**：
+引入独立的计数 refs，与共享的列表状态解耦：
+
+```javascript
+const todoTotal = ref(0)   // 待办总数，独立存储
+const doneTotal = ref(0)   // 已办总数，独立存储
+const myTotal = ref(0)     // 我的申请总数，独立存储
+```
+
+**设计原则**：
+- **列表数据共享**：`approvals` 和 `pagination` 仍然共享，因为用户通常只在一个列表页面操作
+- **计数数据隔离**：侧边栏徽章需要持久准确的计数，因此使用独立的 refs，由各自的 fetch 方法单独维护
+- **计算属性暴露**：通过 `pendingCount`、`doneCount`、`myApprovalCount` 计算属性暴露给 UI，保证响应式更新
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-frontend/src/stores/approval.js` | Store 核心，维护独立的 `todoTotal`/`doneTotal`/`myTotal` refs |
+| `oa-frontend/src/layouts/MainLayout.vue` | 侧边栏导航，显示三个徽章计数 |
+| `oa-frontend/src/views/Dashboard.vue` | 工作台首页，使用 `pendingCount` 显示待办统计 |
+
+### Dashboard Statistics API 设计
+
+**接口定义**：
+- **端点**：`GET /approvals/statistics`
+- **响应**：`Result<DashboardStatisticsResponse>`
+
+**统计项说明**：
+
+| 字段 | 数据来源 | 视角 | 说明 |
+|------|----------|------|------|
+| `pendingCount` | `oa_approval` | 审批人 | 当前用户作为 `current_approver_id` 且 `status=1`(审批中) 的工单数 |
+| `approvedCount` | `oa_approval_history` | 审批人 | 当前用户在历史记录中 `action=1`(通过) 的去重工单数 |
+| `rejectedCount` | `oa_approval_history` | 审批人 | 当前用户在历史记录中 `action=2`(拒绝) 的去重工单数 |
+| `myApprovalCount` | `oa_approval` | 申请人 | 当前用户作为 `applicant_id` 发起的工单总数 |
+| `doneCount` | `oa_approval_history` | 审批人 | 当前用户在历史记录中有任意操作的去重工单数 |
+| `approvalTypeDistribution` | `oa_approval` | 申请人 | 当前用户发起的申请按 `type` 分组统计 |
+
+**关键设计决策**：
+
+1. **已通过/已拒绝使用审批人视角**：
+   - 工作台首页的"已通过"和"已拒绝"卡片展示的是当前用户作为审批人的**操作成果**，而非其申请被他人处理的结果。
+   - 数据源从 `oa_approval`（工单当前状态）切换为 `oa_approval_history`（审批历史记录）。
+   - 使用 `COUNT(DISTINCT approval_id)` 避免同一工单多次操作导致计数膨胀。
+
+2. **我的申请/类型分布使用申请人视角**：
+   - "本月申请"和"审批类型分布"自然属于申请人视角，数据源仍为 `oa_approval` 表。
+
+3. **待办/已办分离**：
+   - 待办（pending）是"需要我审批的"，已办（done）是"我已经审批过的"，两者从不同维度统计，不可混用同一数据源。
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/src/main/java/com/oasystem/dto/DashboardStatisticsResponse.java` | 工作台统计数据响应 DTO，包含6项统计指标和类型分布嵌套类 |
+| `oa-backend/src/main/java/com/oasystem/controller/ApprovalController.java` | 提供 `GET /approvals/statistics` 端点，从 `SecurityContext` 获取当前用户ID |
+| `oa-backend/src/main/java/com/oasystem/service/impl/ApprovalServiceImpl.java` | 实现 `getDashboardStatistics()`，组合多个 Mapper 查询结果并组装响应 |
+| `oa-backend/src/main/java/com/oasystem/mapper/ApprovalMapper.java` | 提供申请人视角的统计查询（待办数、我的申请数、类型分布） |
+| `oa-backend/src/main/java/com/oasystem/mapper/ApprovalHistoryMapper.java` | 提供审批人视角的统计查询（已办数、通过数、拒绝数），使用 `COUNT(DISTINCT)` 去重 |
+| `oa-frontend/src/views/Dashboard.vue` | 对接统计接口，将后端数据映射到前端4个统计卡片和类型分布图 |
+
+### 审批结果落表修复的架构启示
+
+**问题**：COLA 状态机执行动作后更新了 `Approval` 实体的内存状态，但某些字段因缺少 MyBatis-Plus 的 `@TableField` 注解，导致 `updateById()` 时未正确映射到数据库列。
+
+**修复方案**：
+- 在 `Approval` 实体中为关键流程字段补充 `@TableField` 注解，确保 `status`、`current_approver_id` 等字段能被 MyBatis-Plus 正确识别并持久化。
+- 在 `ApprovalStateMachineHelper` 的动作方法中增加关键日志，便于追踪状态转换的执行路径。
+
+**架构启示**：
+- ORM 实体类必须与数据库表结构保持严格一致，新增/修改字段时同步更新实体注解。
+- 状态机只负责内存中的状态流转，持久化逻辑需要在 Service 层显式调用并验证结果。
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/src/main/java/com/oasystem/entity/Approval.java` | 审批工单实体，补充 `@TableField` 注解解决字段映射问题 |
+| `oa-backend/src/main/java/com/oasystem/statemachine/ApprovalStateMachineHelper.java` | 状态机动作实现，增加状态变更审计日志 |
+| `oa-backend/src/main/java/com/oasystem/service/impl/ApprovalServiceImpl.java` | 审批服务实现，修复审批操作后的持久化逻辑 |
+
+### 动态表单数据类型演进
+
+**演进过程**：
+- **初始设计**：`formData` 在前端作为 JSON 字符串提交，后端以 `String` 接收并存储。
+- **问题**：前后端需要手动进行 JSON 字符串和对象的转换，容易出错且不符合 RESTful 设计。
+- **最终设计**：`formData` 改为 `Map<String, Object>`，前端直接提交 JSON 对象，后端使用 FastJSON2 自动序列化为 `JSON` 类型存储到 MySQL。
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/src/main/java/com/oasystem/dto/ApprovalCreateRequest.java` | 创建工单请求 DTO，`formData` 字段类型改为 `Map<String, Object>` |
+| `oa-backend/src/main/java/com/oasystem/dto/ApprovalUpdateRequest.java` | 更新工单请求 DTO，`formData` 字段类型改为 `Map<String, Object>` |
+| `oa-backend/src/main/java/com/oasystem/service/impl/ApprovalServiceImpl.java` | 适配 `Map` 类型的表单数据，使用 `JSON.toJSONString()` 持久化 |
+| `oa-frontend/src/views/ApprovalCreate.vue` | 表单设计器渲染的动态表单，直接输出 JSON 对象作为 `formData` |
