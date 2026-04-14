@@ -40,6 +40,8 @@ export const useApprovalStore = defineStore('approval', () => {
     size: 10,
     total: 0
   })
+  // 待办总数（独立存储，不受其他列表分页影响）
+  const todoTotal = ref(0)
 
   // 计算属性 - 待办列表 (状态为 processing)
   const pendingApprovals = computed(() =>
@@ -207,6 +209,8 @@ export const useApprovalStore = defineStore('approval', () => {
       })
       approvals.value = records.map(transformApproval)
       pagination.value = { current, size, total }
+      // 独立存储待办总数，用于侧边栏徽章（不受其他分页影响）
+      todoTotal.value = total
       return { success: true, data: approvals.value }
     } catch (error) {
       return { success: false, message: error.message }
@@ -266,14 +270,15 @@ export const useApprovalStore = defineStore('approval', () => {
     }
   }
 
-  // 待办总数（从后端返回的 total 中获取）
-  const pendingCount = computed(() => pagination.value.total || 0)
+  // 待办总数（从独立存储的 todoTotal 中获取，不受其他列表分页影响）
+  const pendingCount = computed(() => todoTotal.value || 0)
 
   return {
     approvals,
     currentApproval,
     approvalHistory,
     pagination,
+    todoTotal,
     pendingApprovals,
     approvedApprovals,
     rejectedApprovals,
