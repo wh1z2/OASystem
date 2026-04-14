@@ -5,6 +5,7 @@ import com.oasystem.security.UserDetailsImpl;
 import com.oasystem.service.ApprovalService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +26,7 @@ public class ApprovalController {
      * 创建审批工单
      */
     @PostMapping
+    @PreAuthorize("hasAnyAuthority('apply', 'all')")
     public Result<Long> create(@RequestBody @Valid ApprovalCreateRequest request) {
         Long applicantId = getCurrentUserId();
         Long id = approvalService.create(request, applicantId);
@@ -35,6 +37,7 @@ public class ApprovalController {
      * 更新审批工单
      */
     @PostMapping("/{id}/update")
+    @PreAuthorize("hasAnyAuthority('apply', 'all')")
     public Result<Boolean> update(@PathVariable Long id, @RequestBody @Valid ApprovalUpdateRequest request) {
         Boolean success = approvalService.update(id, request);
         return Result.success(success);
@@ -44,6 +47,7 @@ public class ApprovalController {
      * 删除审批工单
      */
     @PostMapping("/{id}/delete")
+    @PreAuthorize("hasAnyAuthority('apply', 'all')")
     public Result<Boolean> delete(@PathVariable Long id) {
         Long operatorId = getCurrentUserId();
         Boolean success = approvalService.delete(id, operatorId);
@@ -54,6 +58,7 @@ public class ApprovalController {
      * 获取工单详情
      */
     @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public Result<ApprovalDetailResponse> getById(@PathVariable Long id) {
         ApprovalDetailResponse response = approvalService.getById(id);
         return Result.success(response);
@@ -63,6 +68,7 @@ public class ApprovalController {
      * 分页查询工单列表
      */
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public Result<PageResult<ApprovalDetailResponse>> list(ApprovalQuery query) {
         PageResult<ApprovalDetailResponse> result = approvalService.list(query);
         return Result.success(result);
@@ -72,6 +78,7 @@ public class ApprovalController {
      * 提交申请
      */
     @PostMapping("/{id}/submit")
+    @PreAuthorize("hasAnyAuthority('apply', 'all')")
     public Result<Boolean> submit(@PathVariable Long id) {
         Long operatorId = getCurrentUserId();
         Boolean success = approvalService.submit(id, operatorId);
@@ -82,6 +89,7 @@ public class ApprovalController {
      * 审批通过
      */
     @PostMapping("/{id}/approve")
+    @PreAuthorize("hasAnyAuthority('approval', 'all')")
     public Result<Boolean> approve(@PathVariable Long id, @RequestBody ApprovalActionCmd cmd) {
         Long operatorId = getCurrentUserId();
         Boolean success = approvalService.approve(id, cmd, operatorId);
@@ -92,6 +100,7 @@ public class ApprovalController {
      * 审批拒绝
      */
     @PostMapping("/{id}/reject")
+    @PreAuthorize("hasAnyAuthority('approval', 'all')")
     public Result<Boolean> reject(@PathVariable Long id, @RequestBody ApprovalActionCmd cmd) {
         Long operatorId = getCurrentUserId();
         Boolean success = approvalService.reject(id, cmd, operatorId);
@@ -102,6 +111,7 @@ public class ApprovalController {
      * 重新编辑
      */
     @PostMapping("/{id}/reedit")
+    @PreAuthorize("hasAnyAuthority('apply', 'all')")
     public Result<Boolean> reedit(@PathVariable Long id) {
         Long operatorId = getCurrentUserId();
         Boolean success = approvalService.reedit(id, operatorId);
@@ -112,6 +122,7 @@ public class ApprovalController {
      * 撤销申请
      */
     @PostMapping("/{id}/revoke")
+    @PreAuthorize("hasAnyAuthority('apply', 'all')")
     public Result<Boolean> revoke(@PathVariable Long id) {
         Long operatorId = getCurrentUserId();
         Boolean success = approvalService.revoke(id, operatorId);
@@ -122,6 +133,7 @@ public class ApprovalController {
      * 获取待办列表
      */
     @GetMapping("/todo")
+    @PreAuthorize("hasAnyAuthority('approval', 'all')")
     public Result<PageResult<ApprovalDetailResponse>> getTodoList(ApprovalQuery query) {
         Long approverId = getCurrentUserId();
         PageResult<ApprovalDetailResponse> result = approvalService.getTodoList(approverId, query);
@@ -132,6 +144,7 @@ public class ApprovalController {
      * 获取已办列表
      */
     @GetMapping("/done")
+    @PreAuthorize("hasAnyAuthority('approval', 'all')")
     public Result<PageResult<ApprovalDetailResponse>> getDoneList(ApprovalQuery query) {
         Long approverId = getCurrentUserId();
         PageResult<ApprovalDetailResponse> result = approvalService.getDoneList(approverId, query);
@@ -142,6 +155,7 @@ public class ApprovalController {
      * 获取我的申请列表
      */
     @GetMapping("/my")
+    @PreAuthorize("isAuthenticated()")
     public Result<PageResult<ApprovalDetailResponse>> getMyApprovals(ApprovalQuery query) {
         Long applicantId = getCurrentUserId();
         PageResult<ApprovalDetailResponse> result = approvalService.getMyApprovals(applicantId, query);
@@ -152,6 +166,7 @@ public class ApprovalController {
      * 获取审批历史
      */
     @GetMapping("/{id}/history")
+    @PreAuthorize("isAuthenticated()")
     public Result<List<ApprovalHistoryResponse>> getHistory(@PathVariable Long id) {
         List<ApprovalHistoryResponse> result = approvalService.getHistory(id);
         return Result.success(result);
@@ -161,6 +176,7 @@ public class ApprovalController {
      * 获取工作台统计数据
      */
     @GetMapping("/statistics")
+    @PreAuthorize("isAuthenticated()")
     public Result<DashboardStatisticsResponse> getDashboardStatistics() {
         Long userId = getCurrentUserId();
         if (userId == null) {

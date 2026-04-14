@@ -12,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -43,7 +44,7 @@ class ApprovalServiceTest {
         request.setTitle("测试创建审批");
         request.setType(ApprovalType.LEAVE.getCode());
         request.setContent("测试内容");
-        request.setFormData("{\"reason\":\"测试\"}");
+        request.setFormData(Map.of("reason", "测试"));
         request.setCurrentApproverId(USER_ID_MANAGER);
 
         Long id = approvalService.create(request, USER_ID_LISI);
@@ -84,14 +85,14 @@ class ApprovalServiceTest {
 
         ApprovalQuery query = new ApprovalQuery();
         query.setApplicantId(USER_ID_LISI);
-        query.setPageNum(1);
-        query.setPageSize(10);
+        query.setCurrent(1);
+        query.setSize(10);
 
         PageResult<ApprovalDetailResponse> result = approvalService.list(query);
 
         assertNotNull(result);
         assertTrue(result.getTotal() >= 2);
-        assertNotNull(result.getList());
+        assertNotNull(result.getRecords());
     }
 
     /**
@@ -275,8 +276,8 @@ class ApprovalServiceTest {
         createAndSubmitApproval("待办测试2", USER_ID_ZHANGSAN, USER_ID_MANAGER);
 
         ApprovalQuery query = new ApprovalQuery();
-        query.setPageNum(1);
-        query.setPageSize(10);
+        query.setCurrent(1);
+        query.setSize(10);
 
         PageResult<ApprovalDetailResponse> result = approvalService.getTodoList(USER_ID_MANAGER, query);
 
@@ -293,8 +294,8 @@ class ApprovalServiceTest {
         Long id1 = createSubmitAndApprove("已办测试1", USER_ID_LISI, USER_ID_MANAGER);
 
         ApprovalQuery query = new ApprovalQuery();
-        query.setPageNum(1);
-        query.setPageSize(10);
+        query.setCurrent(1);
+        query.setSize(10);
 
         PageResult<ApprovalDetailResponse> result = approvalService.getDoneList(USER_ID_MANAGER, query);
 
@@ -325,8 +326,8 @@ class ApprovalServiceTest {
         createTestApproval("我的申请2", USER_ID_LISI);
 
         ApprovalQuery query = new ApprovalQuery();
-        query.setPageNum(1);
-        query.setPageSize(10);
+        query.setCurrent(1);
+        query.setSize(10);
 
         PageResult<ApprovalDetailResponse> result = approvalService.getMyApprovals(USER_ID_LISI, query);
 
@@ -344,7 +345,7 @@ class ApprovalServiceTest {
         ApprovalUpdateRequest request = new ApprovalUpdateRequest();
         request.setTitle("更新后");
         request.setContent("更新内容");
-        request.setFormData("{\"updated\":true}");
+        request.setFormData(Map.of("updated", true));
 
         Boolean success = approvalService.update(id, request);
         assertTrue(success);
@@ -409,7 +410,7 @@ class ApprovalServiceTest {
         request.setTitle(title);
         request.setType(ApprovalType.LEAVE.getCode());
         request.setContent("测试内容");
-        request.setFormData("{\"test\":true}");
+        request.setFormData(Map.of("test", true));
         return approvalService.create(request, applicantId);
     }
 

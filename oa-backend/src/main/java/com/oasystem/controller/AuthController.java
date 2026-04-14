@@ -7,6 +7,7 @@ import com.oasystem.dto.UserInfoResponse;
 import com.oasystem.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,6 +36,7 @@ public class AuthController {
      * 获取当前登录用户信息
      */
     @GetMapping("/info")
+    @PreAuthorize("isAuthenticated()")
     public Result<UserInfoResponse> getCurrentUserInfo() {
         UserInfoResponse userInfo = authService.getCurrentUserInfo();
         if (userInfo == null) {

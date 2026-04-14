@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -274,7 +275,7 @@ class PermissionProxyApprovalTest {
         request.setTitle(title);
         request.setType(ApprovalType.LEAVE.getCode());
         request.setContent("测试内容");
-        request.setFormData("{\"test\":true}");
+        request.setFormData(Map.of("test", true));
         return approvalService.create(request, applicantId);
     }
 

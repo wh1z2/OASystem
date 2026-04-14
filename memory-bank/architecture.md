@@ -618,7 +618,7 @@ public class ApprovalContext {
 
 ---
 
-*最后更新: 2026-04-14 (阶段七补充完成：工作台统计接口、状态隔离修复、审批结果落表修复、表单类型调整)*
+*最后更新: 2026-04-14 (R1高风险项修复完成：方法级权限控制、用户/角色管理后端实现、权限测试覆盖)*
 
 ---
 
@@ -689,6 +689,49 @@ const myTotal = ref(0)     // 我的申请总数，独立存储
 | `oa-backend/src/main/java/com/oasystem/mapper/ApprovalMapper.java` | 提供申请人视角的统计查询（待办数、我的申请数、类型分布） |
 | `oa-backend/src/main/java/com/oasystem/mapper/ApprovalHistoryMapper.java` | 提供审批人视角的统计查询（已办数、通过数、拒绝数），使用 `COUNT(DISTINCT)` 去重 |
 | `oa-frontend/src/views/Dashboard.vue` | 对接统计接口，将后端数据映射到前端4个统计卡片和类型分布图 |
+
+### R1 修复：后端方法级权限控制与用户/角色管理后端
+
+**问题背景**：
+根据 `Authority-review-report.md` 的审查结果，R1 高风险项指出后端接口缺少方法级权限控制，所有认证用户均可调用任意管理接口，存在严重越权风险。具体表现为：
+- `SecurityConfig` 未启用 `@EnableMethodSecurity`
+- Controller 层无任何 `@PreAuthorize` / `@Secured` 注解
+- 缺失 `UserController` 和 `RoleController`，用户/角色管理仅依赖前端模拟数据
+
+**修复方案**：
+1. **启用方法级安全**：在 `SecurityConfig` 中添加 `@EnableMethodSecurity(prePostEnabled = true)`
+2. **为现有 Controller 添加权限注解**：
+   - `ApprovalController`：创建/更新/删除/提交/重新编辑/撤销 需 `apply` 权限；审批通过/拒绝/待办/已办 需 `approval` 权限；列表查询需认证
+   - `AuthController`：`/auth/info` 需 `isAuthenticated()`
+3. **补齐用户/角色管理后端**：
+   - 新建 `UserService` / `UserServiceImpl` / `UserController`，支持用户 CRUD、修改密码、更新个人资料
+   - 新建 `RoleService` / `RoleServiceImpl` / `RoleController`，支持角色 CRUD
+   - 为管理接口添加 `user_view` / `user_manage` / `role_manage` 权限控制
+4. **测试覆盖**：编写 `MethodSecurityTest`（32 个测试用例），全面验证权限控制生效
+
+**权限编码设计**：
+| 权限编码 | 适用接口 | 默认角色 |
+|---------|---------|---------|
+| `all` | 所有接口 | admin |
+| `user_view` | GET /users, GET /users/{id} | admin, manager |
+| `user_manage` | POST/PUT/DELETE /users/* | admin |
+| `role_manage` | GET/POST/PUT/DELETE /roles/* | admin |
+| `approval` | 审批操作、待办/已办列表 | admin, manager |
+| `apply` | 创建/编辑/提交/撤销工单 | admin, manager, employee |
+| `personal` | 修改密码、更新个人资料 | admin, manager, employee |
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/src/main/java/com/oasystem/config/SecurityConfig.java` | 启用 `@EnableMethodSecurity` |
+| `oa-backend/src/main/java/com/oasystem/controller/ApprovalController.java` | 添加 `@PreAuthorize` 方法级权限控制 |
+| `oa-backend/src/main/java/com/oasystem/controller/AuthController.java` | 添加 `isAuthenticated()` 控制 |
+| `oa-backend/src/main/java/com/oasystem/controller/UserController.java` | 用户管理控制器（新建） |
+| `oa-backend/src/main/java/com/oasystem/controller/RoleController.java` | 角色管理控制器（新建） |
+| `oa-backend/src/main/java/com/oasystem/service/UserService.java` / `impl/UserServiceImpl.java` | 用户服务层（新建） |
+| `oa-backend/src/main/java/com/oasystem/service/RoleService.java` / `impl/RoleServiceImpl.java` | 角色服务层（新建） |
+| `oa-backend/src/test/java/com/oasystem/controller/MethodSecurityTest.java` | 权限控制集成测试（32个用例） |
+| `oa-backend/docs/api-test/permission-api-tests.openapi.yaml` | Apifox 接口测试用例文档 |
 
 ### 审批结果落表修复的架构启示
 

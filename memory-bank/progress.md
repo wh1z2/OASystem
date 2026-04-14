@@ -399,6 +399,52 @@
 
 ---
 
+### 阶段九补充：R1 高风险项修复（后端权限控制） ✅
+
+**完成日期**: 2026-04-14
+
+**执行内容**:
+
+#### 1. 方法级权限控制启用
+- ✅ 在 `SecurityConfig.java` 中启用 `@EnableMethodSecurity(prePostEnabled = true)`
+- ✅ 为 `ApprovalController` 全部 15 个端点添加 `@PreAuthorize` 注解
+- ✅ 为 `AuthController` 的 `/auth/info` 添加 `isAuthenticated()` 控制
+
+#### 2. 用户管理后端实现
+- ✅ 新建 `UserService` / `UserServiceImpl`：用户 CRUD、修改密码、更新个人资料
+- ✅ 新建 `UserController`（`/users`）：6 个端点，带 `user_view` / `user_manage` 权限控制
+- ✅ 新建相关 DTO：`UserCreateRequest`、`UserUpdateRequest`、`UserQuery`、`PasswordChangeRequest`、`ProfileUpdateRequest`
+
+#### 3. 角色管理后端实现
+- ✅ 新建 `RoleService` / `RoleServiceImpl`：角色 CRUD、权限配置持久化
+- ✅ 新建 `RoleController`（`/roles`）：6 个端点，带 `role_manage` 权限控制
+- ✅ 新建相关 DTO：`RoleCreateRequest`、`RoleUpdateRequest`
+
+#### 4. 权限测试覆盖
+- ✅ 编写 `MethodSecurityTest`（32 个测试用例），覆盖审批/用户/角色接口的权限控制验证
+- ✅ 修复现有测试 `ApprovalServiceTest` 和 `PermissionProxyApprovalTest` 的编译兼容性问题
+- ✅ 全量测试通过：90 个测试用例全部通过
+
+#### 5. 接口测试文档
+- ✅ 创建 `permission-api-tests.openapi.yaml`，可直接导入 Apifox 进行接口测试
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| Security 配置 | `oa-backend/config/SecurityConfig.java` |
+| Controller 更新 | `oa-backend/controller/ApprovalController.java`, `oa-backend/controller/AuthController.java` |
+| Controller 新增 | `oa-backend/controller/UserController.java`, `oa-backend/controller/RoleController.java` |
+| Service 新增 | `oa-backend/service/UserService.java`, `oa-backend/service/impl/UserServiceImpl.java`, `oa-backend/service/RoleService.java`, `oa-backend/service/impl/RoleServiceImpl.java` |
+| DTO 新增 | `oa-backend/dto/UserCreateRequest.java`, `oa-backend/dto/UserUpdateRequest.java`, `oa-backend/dto/UserQuery.java`, `oa-backend/dto/PasswordChangeRequest.java`, `oa-backend/dto/ProfileUpdateRequest.java`, `oa-backend/dto/RoleCreateRequest.java`, `oa-backend/dto/RoleUpdateRequest.java` |
+| 单元测试 | `oa-backend/src/test/java/com/oasystem/controller/MethodSecurityTest.java` |
+| 测试修复 | `oa-backend/src/test/java/com/oasystem/service/ApprovalServiceTest.java`, `oa-backend/src/test/java/com/oasystem/service/PermissionProxyApprovalTest.java` |
+| API 测试文档 | `oa-backend/docs/api-test/permission-api-tests.openapi.yaml` |
+| 架构文档 | `memory-bank/architecture.md` |
+
+**验证状态**: ✅ 后端编译通过，90 个单元测试全部通过，`MethodSecurityTest` 32 个权限测试全部通过
+
+---
+
 ## 待完成阶段
 
 - [x] 阶段一：开发环境验证 ✅
@@ -409,10 +455,10 @@
 - [x] 阶段六：审批流程核心功能 ✅
 - [ ] 阶段七：前端接口对接 
 - [ ] 阶段八：表单设计器实现
-- [ ] 阶段九：用户与角色管理
+- [x] 阶段九：用户与角色管理（后端已完成，前端待对接） ✅
 - [ ] 阶段十：系统测试与优化
 - [ ] 阶段十一：部署上线
 
 ---
 
-*最后更新: 2026-04-06 (阶段七已部分完成，需要继续完善)*
+*最后更新: 2026-04-14 (R1修复完成：方法级权限控制、用户/角色管理后端、权限测试覆盖)*

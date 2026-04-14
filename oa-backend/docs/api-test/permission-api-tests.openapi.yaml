@@ -1,0 +1,617 @@
+openapi: 3.0.3
+info:
+  title: OA系统 - 权限控制与用户/角色管理API测试用例
+  description: |
+    R1高风险项修复测试用例规范文档。
+    覆盖方法级权限控制（@PreAuthorize）、用户管理、角色管理接口的完整测试场景。
+    包含权限不足拒绝、有权限通过、未认证拦截等测试用例。
+  version: 1.0.0
+  contact:
+    name: OA System Team
+
+servers:
+  - url: http://localhost:8080/api
+    description: 本地开发环境（Spring Boot后端服务）
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: 权限控制测试
+    description: |
+      验证后端方法级权限控制（@EnableMethodSecurity + @PreAuthorize）是否正确生效。
+      测试账号权限说明：
+      - admin: 拥有 `all` 权限，可访问所有接口
+      - manager: 拥有 `approval`, `user_view`, `report`, `apply`, `personal`
+      - employee: 拥有 `apply`, `personal`
+  - name: 用户管理
+    description: 用户CRUD、密码修改、个人资料更新
+  - name: 角色管理
+    description: 角色CRUD、权限配置
+
+paths:
+  # ==================== 权限控制测试 ====================
+  /auth/info:
+    get:
+      tags:
+        - 权限控制测试
+      summary: 权限测试 - 获取当前用户信息
+      description: |
+        **测试对象**: `GET /auth/info`
+        **权限要求**: `@PreAuthorize("isAuthenticated()")`
+        **测试目的**: 验证已认证用户可访问，未认证用户被拒绝。
+      operationId: authInfoPermissionTest
+      responses:
+        "200":
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+              examples:
+                TC-PERM-AUTH-001-未认证访问:
+                  summary: "【权限】未认证访问应返回403"
+                  description: 不带Token访问，预期返回code=403（本项目安全处理器返回HTTP 200 + 业务码403）
+                  value:
+                    code: 403
+                    message: "无权访问该资源，权限不足"
+                    data: null
+                TC-PERM-AUTH-002-已认证访问:
+                  summary: "【权限】已认证访问应返回200"
+                  description: 携带有效JWT Token访问，预期返回code=200及当前用户信息
+                  value:
+                    code: 200
+                    message: "success"
+                    data:
+                      id: 1
+                      username: "admin"
+                      roleName: "admin"
+
+  /approvals:
+    post:
+      tags:
+        - 权限控制测试
+      summary: 权限测试 - 创建审批工单
+      description: |
+        **测试对象**: `POST /approvals`
+        **权限要求**: `@PreAuthorize("hasAnyAuthority('apply', 'all')")`
+        **测试目的**: 验证只有拥有 `apply` 或 `all` 权限的用户才能创建工单。
+      operationId: createApprovalPermissionTest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalCreateRequest'
+            examples:
+              TC-PERM-APPLY-001-无apply权限:
+                summary: "【权限】无apply权限用户创建工单"
+                description: 使用无apply权限的账号（如只有personal权限），预期返回code=403
+                value:
+                  title: "权限测试申请"
+                  type: 1
+                  content: "测试内容"
+              TC-PERM-APPLY-002-有apply权限:
+                summary: "【权限】有apply权限用户创建工单"
+                description: 使用employee账号（有apply权限），预期返回code=200
+                value:
+                  title: "权限测试申请"
+                  type: 1
+                  content: "测试内容"
+
+  /approvals/{id}/approve:
+    post:
+      tags:
+        - 权限控制测试
+      summary: 权限测试 - 审批通过
+      description: |
+        **测试对象**: `POST /approvals/{id}/approve`
+        **权限要求**: `@PreAuthorize("hasAnyAuthority('approval', 'all')")`
+        **测试目的**: 验证只有拥有 `approval` 或 `all` 权限的用户才能执行审批操作。
+      operationId: approvePermissionTest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalActionCmd'
+            examples:
+              TC-PERM-APPROVAL-001-无approval权限:
+                summary: "【权限】无approval权限用户审批"
+                description: 使用employee账号（无approval权限），预期返回code=403
+                value:
+                  comment: "测试审批"
+              TC-PERM-APPROVAL-002-有approval权限:
+                summary: "【权限】有approval权限用户审批"
+                description: 使用manager账号（有approval权限），预期返回code=200或业务错误（但非403）
+                value:
+                  comment: "测试审批"
+
+  /users:
+    get:
+      tags:
+        - 权限控制测试
+      summary: 权限测试 - 查询用户列表
+      description: |
+        **测试对象**: `GET /users`
+        **权限要求**: `@PreAuthorize("hasAnyAuthority('user_view', 'user_manage', 'all')")`
+        **测试目的**: 验证用户列表查询需要 `user_view`/`user_manage`/`all` 权限之一。
+      operationId: listUsersPermissionTest
+      responses:
+        "200":
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+              examples:
+                TC-PERM-USER-001-employee访问用户列表:
+                  summary: "【权限】employee访问用户列表应被拒绝"
+                  description: employee无user_view权限，预期返回code=403
+                  value:
+                    code: 403
+                    message: "无权访问该资源，权限不足"
+                TC-PERM-USER-002-manager访问用户列表:
+                  summary: "【权限】manager访问用户列表应通过"
+                  description: manager有user_view权限，预期返回code=200
+                  value:
+                    code: 200
+                    message: "success"
+    post:
+      tags:
+        - 权限控制测试
+      summary: 权限测试 - 创建用户
+      description: |
+        **测试对象**: `POST /users`
+        **权限要求**: `@PreAuthorize("hasAnyAuthority('user_manage', 'all')")`
+        **测试目的**: 验证创建用户需要 `user_manage` 或 `all` 权限。
+      operationId: createUserPermissionTest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+            examples:
+              TC-PERM-USER-003-manager创建用户:
+                summary: "【权限】manager创建用户应被拒绝"
+                description: manager无user_manage权限，预期返回code=403
+                value:
+                  username: "testuser"
+                  password: "123456"
+                  name: "测试用户"
+                  email: "test@test.com"
+                  roleId: 3
+              TC-PERM-USER-004-admin创建用户:
+                summary: "【权限】admin创建用户应通过"
+                description: admin有all权限，预期返回code=200
+                value:
+                  username: "testuser"
+                  password: "123456"
+                  name: "测试用户"
+                  email: "test@test.com"
+                  roleId: 3
+
+  /roles:
+    get:
+      tags:
+        - 权限控制测试
+      summary: 权限测试 - 查询角色列表
+      description: |
+        **测试对象**: `GET /roles`
+        **权限要求**: `@PreAuthorize("hasAnyAuthority('role_manage', 'all')")`
+        **测试目的**: 验证角色列表查询需要 `role_manage` 或 `all` 权限。
+      operationId: listRolesPermissionTest
+      responses:
+        "200":
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+              examples:
+                TC-PERM-ROLE-001-manager访问角色列表:
+                  summary: "【权限】manager访问角色列表应被拒绝"
+                  description: manager无role_manage权限，预期返回code=403
+                  value:
+                    code: 403
+                    message: "无权访问该资源，权限不足"
+                TC-PERM-ROLE-002-admin访问角色列表:
+                  summary: "【权限】admin访问角色列表应通过"
+                  description: admin有all权限，预期返回code=200
+                  value:
+                    code: 200
+                    message: "success"
+
+  # ==================== 用户管理接口 ====================
+  /users/{id}:
+    get:
+      tags:
+        - 用户管理
+      summary: 根据ID查询用户详情
+      description: 获取指定用户的详细信息，包含角色和部门名称。
+      operationId: getUserById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 1
+      responses:
+        "200":
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /users/{id}/update:
+    post:
+      tags:
+        - 用户管理
+      summary: 更新用户信息
+      description: 更新指定用户的基本信息和角色。
+      operationId: updateUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+            examples:
+              TC-USER-001-更新用户信息:
+                summary: "【正常】更新用户信息"
+                value:
+                  name: "李四（已更新）"
+                  email: "lisi_new@oasystem.com"
+                  phone: "13800000033"
+                  roleId: 3
+                  deptId: 2
+                  status: 1
+
+  /users/{id}/delete:
+    post:
+      tags:
+        - 用户管理
+      summary: 删除用户
+      description: 删除指定用户。不允许删除admin账号。
+      operationId: deleteUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 5
+
+  /users/password:
+    post:
+      tags:
+        - 用户管理
+      summary: 修改密码
+      description: 当前登录用户修改自己的密码。
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+            examples:
+              TC-USER-PWD-001-正常修改密码:
+                summary: "【正常】修改密码"
+                value:
+                  oldPassword: "user123"
+                  newPassword: "newpass123"
+              TC-USER-PWD-002-旧密码错误:
+                summary: "【异常】旧密码错误"
+                value:
+                  oldPassword: "wrongpass"
+                  newPassword: "newpass123"
+
+  /users/profile:
+    post:
+      tags:
+        - 用户管理
+      summary: 更新个人资料
+      description: 当前登录用户更新个人基本信息。
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdateRequest'
+            examples:
+              TC-USER-PROFILE-001-更新个人资料:
+                summary: "【正常】更新个人资料"
+                value:
+                  name: "李四"
+                  email: "lisi@oasystem.com"
+                  phone: "13800000003"
+
+  # ==================== 角色管理接口 ====================
+  /roles/all:
+    get:
+      tags:
+        - 角色管理
+      summary: 查询所有角色列表
+      description: 获取系统中所有角色的列表，包含权限配置。
+      operationId: listAllRoles
+      responses:
+        "200":
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /roles/{id}:
+    get:
+      tags:
+        - 角色管理
+      summary: 根据ID查询角色详情
+      description: 获取指定角色的详细信息。
+      operationId: getRoleById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 2
+      responses:
+        "200":
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /roles/{id}/update:
+    post:
+      tags:
+        - 角色管理
+      summary: 更新角色
+      description: 更新指定角色的显示名、描述和权限配置。不允许修改admin角色。
+      operationId: updateRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleUpdateRequest'
+            examples:
+              TC-ROLE-001-更新角色权限:
+                summary: "【正常】更新角色权限"
+                value:
+                  label: "部门经理（已更新）"
+                  description: "审批权限、查看用户、查看报表"
+                  permissions: ["approval", "user_view", "report", "apply", "personal"]
+
+  /roles/{id}/delete:
+    post:
+      tags:
+        - 角色管理
+      summary: 删除角色
+      description: 删除指定角色。不允许删除admin角色。
+      operationId: deleteRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 2
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        通过 `/auth/login` 获取 JWT Token，
+        在请求头中以 `Authorization: Bearer <token>` 格式传递。
+
+  schemas:
+    Result:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 业务响应码
+        message:
+          type: string
+          description: 响应消息
+        data:
+          description: 响应数据
+        timestamp:
+          type: integer
+          format: int64
+          description: 时间戳
+
+    ApprovalCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: 审批标题
+        type:
+          type: integer
+          description: 审批类型
+        priority:
+          type: integer
+          description: 优先级
+        content:
+          type: string
+          description: 申请内容
+        formData:
+          type: object
+          description: 表单数据（JSON对象）
+        currentApproverId:
+          type: integer
+          format: int64
+          description: 当前审批人ID
+      required:
+        - title
+        - type
+
+    ApprovalActionCmd:
+      type: object
+      properties:
+        comment:
+          type: string
+          description: 审批意见
+        nextApproverId:
+          type: integer
+          format: int64
+          description: 下一审批人ID
+
+    UserCreateRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          description: 用户名
+        password:
+          type: string
+          description: 密码
+        name:
+          type: string
+          description: 真实姓名
+        email:
+          type: string
+          description: 邮箱
+        phone:
+          type: string
+          description: 手机号
+        avatar:
+          type: string
+          description: 头像URL
+        roleId:
+          type: integer
+          format: int64
+          description: 角色ID
+        deptId:
+          type: integer
+          format: int64
+          description: 部门ID
+        status:
+          type: integer
+          description: 状态（0禁用，1启用）
+      required:
+        - username
+        - password
+        - name
+        - email
+        - roleId
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 真实姓名
+        email:
+          type: string
+          description: 邮箱
+        phone:
+          type: string
+          description: 手机号
+        avatar:
+          type: string
+          description: 头像URL
+        roleId:
+          type: integer
+          format: int64
+          description: 角色ID
+        deptId:
+          type: integer
+          format: int64
+          description: 部门ID
+        status:
+          type: integer
+          description: 状态（0禁用，1启用）
+      required:
+        - name
+        - email
+        - roleId
+
+    PasswordChangeRequest:
+      type: object
+      properties:
+        oldPassword:
+          type: string
+          description: 旧密码
+        newPassword:
+          type: string
+          description: 新密码
+      required:
+        - oldPassword
+        - newPassword
+
+    ProfileUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 真实姓名
+        email:
+          type: string
+          description: 邮箱
+        phone:
+          type: string
+          description: 手机号
+        avatar:
+          type: string
+          description: 头像URL
+      required:
+        - name
+        - email
+
+    RoleUpdateRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          description: 角色显示名
+        description:
+          type: string
+          description: 角色描述
+        permissions:
+          type: array
+          items:
+            type: string
+          description: 权限编码列表
+      required:
+        - label
