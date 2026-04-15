@@ -733,6 +733,39 @@ const myTotal = ref(0)     // 我的申请总数，独立存储
 | `oa-backend/src/test/java/com/oasystem/controller/MethodSecurityTest.java` | 权限控制集成测试（32个用例） |
 | `oa-backend/docs/api-test/permission-api-tests.openapi.yaml` | Apifox 接口测试用例文档 |
 
+### R2 修复：审批数据权限控制
+
+**问题背景**：
+根据 `Authority-review-report.md` 的审查结果，R2 高风险项指出 `GET /approvals/{id}` 和 `GET /approvals` 接口没有任何数据权限过滤，任何认证用户都能查看任意工单的详情和全部列表，存在敏感数据泄露风险。
+
+**修复方案**：
+1. **接口签名调整**：为 `ApprovalService.getById()` 和 `ApprovalService.list()` 增加 `currentUserId` 参数，使 Service 层能够感知当前操作人
+2. **Controller 层透传**：`ApprovalController` 从 `SecurityContext` 获取当前用户ID，传入 Service 方法
+3. **Service 层权限校验**：
+   - `getById`：查询到工单后，调用 `checkViewPermission()` 进行数据权限校验
+   - `list`：在 MyBatis-Plus 查询条件中动态注入数据权限过滤条件
+
+**数据权限规则**：
+
+| 角色 | 详情查询 | 列表查询 |
+|------|---------|---------|
+| admin | 全部 | 全部 |
+| manager | 本部门工单 + 指定自己审批的工单 | 本部门工单 + 指定自己审批的工单 |
+| employee | 仅自己的工单 | 仅自己的工单 |
+
+**实现细节**：
+- 经理的列表查询使用子查询实现：`applicant_id IN (SELECT id FROM sys_user WHERE dept_id = ?) OR current_approver_id = ?`
+- MyBatis-Plus `apply("... {0} ...", deptId)` 确保参数化安全
+- 无权限时抛出 `BusinessException("无权查看该工单")`，由全局异常处理器统一返回 `code=500` 的标准响应
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/src/main/java/com/oasystem/service/ApprovalService.java` | 接口签名增加 `currentUserId` 参数 |
+| `oa-backend/src/main/java/com/oasystem/controller/ApprovalController.java` | 从 SecurityContext 获取用户ID并透传 |
+| `oa-backend/src/main/java/com/oasystem/service/impl/ApprovalServiceImpl.java` | 实现 `checkViewPermission()` 和列表权限过滤 |
+| `oa-backend/src/test/java/com/oasystem/service/ApprovalDataPermissionTest.java` | 数据权限单元测试（10个用例） |
+
 ### 审批结果落表修复的架构启示
 
 **问题**：COLA 状态机执行动作后更新了 `Approval` 实体的内存状态，但某些字段因缺少 MyBatis-Plus 的 `@TableField` 注解，导致 `updateById()` 时未正确映射到数据库列。

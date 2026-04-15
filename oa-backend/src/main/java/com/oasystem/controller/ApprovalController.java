@@ -60,7 +60,8 @@ public class ApprovalController {
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public Result<ApprovalDetailResponse> getById(@PathVariable Long id) {
-        ApprovalDetailResponse response = approvalService.getById(id);
+        Long currentUserId = getCurrentUserId();
+        ApprovalDetailResponse response = approvalService.getById(id, currentUserId);
         return Result.success(response);
     }
 
@@ -70,7 +71,8 @@ public class ApprovalController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public Result<PageResult<ApprovalDetailResponse>> list(ApprovalQuery query) {
-        PageResult<ApprovalDetailResponse> result = approvalService.list(query);
+        Long currentUserId = getCurrentUserId();
+        PageResult<ApprovalDetailResponse> result = approvalService.list(query, currentUserId);
         return Result.success(result);
     }
 

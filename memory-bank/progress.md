@@ -399,6 +399,50 @@
 
 ---
 
+### 阶段九补充：R2 高风险项修复（数据权限控制） ✅
+
+**完成日期**: 2026-04-15
+
+**执行内容**:
+
+#### 1. 数据权限过滤实现
+- ✅ 修改 `ApprovalService` 接口：`getById` 和 `list` 方法增加 `currentUserId` 参数
+- ✅ 修改 `ApprovalController`：`getById` 和 `list` 接口传入当前登录用户ID
+- ✅ 修改 `ApprovalServiceImpl`：实现基于角色的数据权限过滤逻辑
+  - **admin**: 可查看全部工单
+  - **manager**: 可查看本部门工单 + 指定自己审批的工单
+  - **employee**: 只能查看自己发起的工单
+
+#### 2. 数据权限规则
+| 角色 | 详情查询权限 | 列表查询权限 |
+|------|-------------|-------------|
+| admin | 任意工单 | 全部工单 |
+| manager | 本部门工单 + 自己审批的工单 | 本部门工单 + 自己审批的工单 |
+| employee | 仅自己的工单 | 仅自己的工单 |
+
+#### 3. 测试覆盖
+- ✅ 新建 `ApprovalDataPermissionTest`（10 个测试用例），覆盖详情和列表的数据权限验证
+- ✅ 修复 `ApprovalServiceTest` 因接口签名变更导致的编译问题
+- ✅ 全量测试通过：100 个测试用例全部通过
+
+#### 4. 接口测试文档
+- ✅ 创建 `data-permission-api-tests.openapi.yaml`，可直接导入 Apifox 进行接口测试
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| Service 接口 | `oa-backend/service/ApprovalService.java` |
+| Controller 更新 | `oa-backend/controller/ApprovalController.java` |
+| Service 实现 | `oa-backend/service/impl/ApprovalServiceImpl.java` |
+| 单元测试（修复） | `oa-backend/src/test/java/com/oasystem/service/ApprovalServiceTest.java` |
+| 单元测试（新增） | `oa-backend/src/test/java/com/oasystem/service/ApprovalDataPermissionTest.java` |
+| API 测试文档 | `oa-backend/docs/api-test/data-permission-api-tests.openapi.yaml` |
+| 架构文档 | `memory-bank/architecture.md` |
+
+**验证状态**: ✅ 后端编译通过，100 个单元测试全部通过，`ApprovalDataPermissionTest` 10 个数据权限测试全部通过
+
+---
+
 ### 阶段九补充：R1 高风险项修复（后端权限控制） ✅
 
 **完成日期**: 2026-04-14

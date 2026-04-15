@@ -36,16 +36,18 @@ public interface ApprovalService {
     /**
      * 根据ID查询工单详情
      * @param id 工单ID
+     * @param currentUserId 当前用户ID
      * @return 详情响应
      */
-    ApprovalDetailResponse getById(Long id);
+    ApprovalDetailResponse getById(Long id, Long currentUserId);
 
     /**
      * 分页查询工单列表
      * @param query 查询条件
+     * @param currentUserId 当前用户ID
      * @return 分页结果
      */
-    PageResult<ApprovalDetailResponse> list(ApprovalQuery query);
+    PageResult<ApprovalDetailResponse> list(ApprovalQuery query, Long currentUserId);
 
     /**
      * 提交申请

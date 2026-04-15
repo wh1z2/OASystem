@@ -178,16 +178,73 @@ public class ApprovalServiceImpl implements ApprovalService {
     }
 
     @Override
-    public ApprovalDetailResponse getById(Long id) {
+    public ApprovalDetailResponse getById(Long id, Long currentUserId) {
         Approval approval = approvalMapper.selectById(id);
         if (approval == null) {
             throw new BusinessException("审批工单不存在");
         }
+
+        // R2修复：数据权限校验
+        checkViewPermission(approval, currentUserId);
+
         return convertToDetailResponse(approval);
     }
 
+    /**
+     * 校验用户是否有权限查看指定工单详情
+     *
+     * @param approval      工单实体
+     * @param currentUserId 当前用户ID
+     * @throws BusinessException 无权限时抛出
+     */
+    private void checkViewPermission(Approval approval, Long currentUserId) {
+        if (currentUserId == null) {
+            throw new BusinessException("用户未登录");
+        }
+
+        User currentUser = userMapper.selectByIdWithRole(currentUserId);
+        if (currentUser == null) {
+            throw new BusinessException("当前用户不存在");
+        }
+
+        // 管理员可以查看全部
+        if ("admin".equals(currentUser.getRoleName())) {
+            return;
+        }
+
+        // 部门经理可以查看本部门工单 + 需要自己审批的工单
+        if ("manager".equals(currentUser.getRoleName())) {
+            // 查询申请人部门信息
+            User applicant = userMapper.selectById(approval.getApplicantId());
+            if (applicant != null && applicant.getDeptId() != null
+                    && applicant.getDeptId().equals(currentUser.getDeptId())) {
+                return;
+            }
+            // 或当前审批人是自己
+            if (approval.getCurrentApproverId() != null
+                    && approval.getCurrentApproverId().equals(currentUserId)) {
+                return;
+            }
+            throw new BusinessException("无权查看该工单");
+        }
+
+        // 普通员工只能查看自己的工单
+        if (!approval.getApplicantId().equals(currentUserId)) {
+            throw new BusinessException("无权查看该工单");
+        }
+    }
+
     @Override
-    public PageResult<ApprovalDetailResponse> list(ApprovalQuery query) {
+    public PageResult<ApprovalDetailResponse> list(ApprovalQuery query, Long currentUserId) {
+        if (currentUserId == null) {
+            throw new BusinessException("用户未登录");
+        }
+
+        User currentUser = userMapper.selectByIdWithRole(currentUserId);
+        if (currentUser == null) {
+            throw new BusinessException("当前用户不存在");
+        }
+
         LambdaQueryWrapper<Approval> wrapper = Wrappers.lambdaQuery();
 
         if (StringUtils.hasText(query.getTitle())) {
@@ -201,6 +258,20 @@ public class ApprovalServiceImpl implements ApprovalService {
         }
         if (query.getApplicantId() != null) {
             wrapper.eq(Approval::getApplicantId, query.getApplicantId());
+        }
+
+        // R2修复：数据权限过滤
+        if (!"admin".equals(currentUser.getRoleName())) {
+            if ("manager".equals(currentUser.getRoleName())) {
+                wrapper.and(w -> {
+                    w.apply("applicant_id IN (SELECT id FROM sys_user WHERE dept_id = {0})", currentUser.getDeptId())
+                     .or()
+                     .eq(Approval::getCurrentApproverId, currentUserId);
+                });
+            } else {
+                // 普通员工只能查看自己的工单
+                wrapper.eq(Approval::getApplicantId, currentUserId);
+            }
         }
 
         wrapper.orderByDesc(Approval::getCreateTime);

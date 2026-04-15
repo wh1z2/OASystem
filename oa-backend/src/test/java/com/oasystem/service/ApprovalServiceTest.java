@@ -66,7 +66,7 @@ class ApprovalServiceTest {
         // 先创建一个工单
         Long id = createTestApproval("测试查询", USER_ID_LISI);
 
-        ApprovalDetailResponse response = approvalService.getById(id);
+        ApprovalDetailResponse response = approvalService.getById(id, USER_ID_LISI);
 
         assertNotNull(response);
         assertEquals(id, response.getId());
@@ -88,7 +88,7 @@ class ApprovalServiceTest {
         query.setCurrent(1);
         query.setSize(10);
 
-        PageResult<ApprovalDetailResponse> result = approvalService.list(query);
+        PageResult<ApprovalDetailResponse> result = approvalService.list(query, USER_ID_LISI);
 
         assertNotNull(result);
         assertTrue(result.getTotal() >= 2);

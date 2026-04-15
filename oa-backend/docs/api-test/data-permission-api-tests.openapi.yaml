@@ -1,0 +1,251 @@
+openapi: 3.0.3
+info:
+  title: OA系统 - R2数据权限API测试用例
+  description: |
+    R2高风险项修复测试用例规范文档。
+    覆盖审批工单详情查询（GET /approvals/{id}）和列表查询（GET /approvals）的数据权限过滤。
+
+    **数据权限规则**:
+    - admin: 可查看全部工单
+    - manager: 可查看本部门工单 + 指定自己审批的工单
+    - employee: 只能查看自己发起的工单
+
+    **测试账号**:
+    - admin / admin123: 系统管理员，技术部(dept_id=1)
+    - manager / manager123: 部门经理，技术部(dept_id=1)
+    - user / user123: 李四，财务部(dept_id=2)
+    - zhangsan / user123: 张三，财务部(dept_id=2)
+  version: 1.0.0
+  contact:
+    name: OA System Team
+
+servers:
+  - url: http://localhost:8080/api
+    description: 本地开发环境（Spring Boot后端服务）
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: 数据权限测试
+    description: |
+      验证审批详情和列表接口的数据权限过滤是否正确生效。
+      无权限时返回 HTTP 200 + 业务码 500，message="无权查看该工单"。
+
+paths:
+  /approvals/{id}:
+    get:
+      tags:
+        - 数据权限测试
+      summary: 数据权限测试 - 查询工单详情
+      description: |
+        **测试对象**: `GET /approvals/{id}`
+        **修复内容**: R2数据权限过滤
+        **权限要求**: 需认证，且根据用户角色进行数据权限校验
+      operationId: getApprovalByIdDataPermissionTest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          examples:
+            TC-DATA-DETAIL-001-admin查看任意工单:
+              summary: "【数据权限】admin查看李四的工单"
+              value: 1
+            TC-DATA-DETAIL-002-manager查看本部门工单:
+              summary: "【数据权限】manager查看admin（同部门）的工单"
+              value: 5
+            TC-DATA-DETAIL-003-manager查看跨部门自己审批的工单:
+              summary: "【数据权限】manager查看李四（跨部门）但自己审批的工单"
+              value: 1
+            TC-DATA-DETAIL-004-manager查看无权限工单:
+              summary: "【数据权限】manager查看王五（跨部门且非自己审批）的工单"
+              value: 3
+            TC-DATA-DETAIL-005-employee查看自己的工单:
+              summary: "【数据权限】李四查看自己的工单"
+              value: 1
+            TC-DATA-DETAIL-006-employee查看他人工单:
+              summary: "【数据权限】李四查看张三的工单"
+              value: 2
+      responses:
+        "200":
+          description: 成功或业务异常响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+              examples:
+                TC-DATA-DETAIL-001-成功响应:
+                  summary: "【成功】admin可查看任意工单"
+                  value:
+                    code: 200
+                    message: "success"
+                    data:
+                      id: 1
+                      title: "李四-病假申请"
+                      applicantId: 3
+                      applicantName: "李四"
+                TC-DATA-DETAIL-002-成功响应:
+                  summary: "【成功】manager可查看本部门工单"
+                  value:
+                    code: 200
+                    message: "success"
+                    data:
+                      id: 5
+                      title: "张三-项目上线加班"
+                      applicantId: 4
+                TC-DATA-DETAIL-003-成功响应:
+                  summary: "【成功】manager可查看指定自己审批的跨部门工单"
+                  value:
+                    code: 200
+                    message: "success"
+                    data:
+                      id: 1
+                      title: "李四-病假申请"
+                      currentApproverId: 2
+                TC-DATA-DETAIL-004-权限拒绝:
+                  summary: "【拒绝】manager无权限查看非本部门非自己审批的工单"
+                  value:
+                    code: 500
+                    message: "无权查看该工单"
+                    data: null
+                TC-DATA-DETAIL-005-成功响应:
+                  summary: "【成功】employee可查看自己的工单"
+                  value:
+                    code: 200
+                    message: "success"
+                    data:
+                      id: 1
+                      title: "李四-病假申请"
+                      applicantId: 3
+                TC-DATA-DETAIL-006-权限拒绝:
+                  summary: "【拒绝】employee无权限查看他人工单"
+                  value:
+                    code: 500
+                    message: "无权查看该工单"
+                    data: null
+
+  /approvals:
+    get:
+      tags:
+        - 数据权限测试
+      summary: 数据权限测试 - 查询工单列表
+      description: |
+        **测试对象**: `GET /approvals`
+        **修复内容**: R2数据权限过滤
+        **权限要求**: 需认证，返回结果根据用户角色进行数据权限过滤
+      operationId: listApprovalsDataPermissionTest
+      parameters:
+        - name: title
+          in: query
+          schema:
+            type: string
+          examples:
+            TC-DATA-LIST-001-admin查询全部:
+              summary: "【数据权限】admin查询全部列表"
+              value: ""
+            TC-DATA-LIST-002-manager查询列表:
+              summary: "【数据权限】manager查询列表"
+              value: ""
+            TC-DATA-LIST-003-employee查询列表:
+              summary: "【数据权限】employee查询列表"
+              value: ""
+      responses:
+        "200":
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+              examples:
+                TC-DATA-LIST-001-admin响应:
+                  summary: "【成功】admin返回全部工单"
+                  description: admin应能看到数据库中所有工单（包括示例数据）
+                  value:
+                    code: 200
+                    message: "success"
+                    data:
+                      total: 5
+                      records:
+                        - id: 1
+                          title: "李四-病假申请"
+                          applicantId: 3
+                        - id: 2
+                          title: "张三-差旅费报销"
+                          applicantId: 4
+                        - id: 3
+                          title: "王五-办公椅采购"
+                          applicantId: 5
+                        - id: 4
+                          title: "李四-年假申请"
+                          applicantId: 3
+                        - id: 5
+                          title: "张三-项目上线加班"
+                          applicantId: 4
+                TC-DATA-LIST-002-manager响应:
+                  summary: "【成功】manager返回本部门+自己审批的工单"
+                  description: |
+                    manager（技术部）只能看到：
+                    - 本部门(admin/张三)的工单：id=5（如果admin创建了工单也会显示）
+                    - 指定自己审批的工单：id=1, id=2（current_approver_id=2）
+                  value:
+                    code: 200
+                    message: "success"
+                    data:
+                      total: 3
+                      records:
+                        - id: 1
+                          title: "李四-病假申请"
+                          applicantId: 3
+                          currentApproverId: 2
+                        - id: 2
+                          title: "张三-差旅费报销"
+                          applicantId: 4
+                          currentApproverId: 2
+                        - id: 5
+                          title: "张三-项目上线加班"
+                          applicantId: 4
+                TC-DATA-LIST-003-employee响应:
+                  summary: "【成功】employee只返回自己的工单"
+                  description: 李四只能看到 applicant_id=3 的工单
+                  value:
+                    code: 200
+                    message: "success"
+                    data:
+                      total: 2
+                      records:
+                        - id: 1
+                          title: "李四-病假申请"
+                          applicantId: 3
+                        - id: 4
+                          title: "李四-年假申请"
+                          applicantId: 3
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        通过 `/auth/login` 获取 JWT Token，
+        在请求头中以 `Authorization: Bearer <token>` 格式传递。
+
+  schemas:
+    Result:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 业务响应码（200成功，500业务异常/权限不足）
+        message:
+          type: string
+          description: 响应消息
+        data:
+          description: 响应数据
+        timestamp:
+          type: integer
+          format: int64
+          description: 时间戳
