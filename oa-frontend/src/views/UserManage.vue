@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-semibold text-gray-900">用户管理</h2>
-      <button @click="showAddModal = true" class="btn btn-primary flex items-center gap-2">
+      <button v-if="canManageUsers" @click="showAddModal = true" class="btn btn-primary flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
@@ -68,10 +68,10 @@
             </td>
             <td class="px-6 py-4">
               <div class="flex items-center gap-2">
-                <button @click="editUser(user)" class="text-primary-600 hover:text-primary-700 text-sm font-medium cursor-pointer">
+                <button v-if="canManageUsers" @click="editUser(user)" class="text-primary-600 hover:text-primary-700 text-sm font-medium cursor-pointer">
                   编辑
                 </button>
-                <button @click="deleteUser(user.id)" class="text-danger-600 hover:text-danger-700 text-sm font-medium cursor-pointer">
+                <button v-if="canManageUsers" @click="deleteUser(user.id)" class="text-danger-600 hover:text-danger-700 text-sm font-medium cursor-pointer">
                   删除
                 </button>
               </div>
@@ -148,8 +148,12 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { useAuthStore } from '@/stores/auth'
 
 const userStore = useUserStore()
+const authStore = useAuthStore()
+
+const canManageUsers = computed(() => authStore.checkPermission('user_manage') || authStore.checkPermission('all'))
 
 const searchQuery = ref('')
 const filterRole = ref('')

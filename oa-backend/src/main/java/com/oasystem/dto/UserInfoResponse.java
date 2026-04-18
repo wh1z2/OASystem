@@ -23,4 +23,5 @@ public class UserInfoResponse {
     private String department;
     private Integer status;
     private LocalDateTime createTime;
+    private java.util.List<String> permissions;
 }

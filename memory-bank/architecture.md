@@ -799,3 +799,90 @@ const myTotal = ref(0)     // 我的申请总数，独立存储
 | `oa-backend/src/main/java/com/oasystem/dto/ApprovalUpdateRequest.java` | 更新工单请求 DTO，`formData` 字段类型改为 `Map<String, Object>` |
 | `oa-backend/src/main/java/com/oasystem/service/impl/ApprovalServiceImpl.java` | 适配 `Map` 类型的表单数据，使用 `JSON.toJSONString()` 持久化 |
 | `oa-frontend/src/views/ApprovalCreate.vue` | 表单设计器渲染的动态表单，直接输出 JSON 对象作为 `formData` |
+
+### R3 修复：前端权限控制体系
+
+**问题背景**：
+根据 `Authority-review-report.md` 的审查结果，R3 高风险项指出前端无任何角色权限控制，所有菜单和按钮对所有用户可见。前端虽然使用 Pinia 管理认证状态，但路由、侧边栏、操作按钮均未根据用户角色或权限进行显隐控制，存在越权操作风险。
+
+**修复方案**：
+1. **后端权限数据暴露**：扩展 `UserDetailsImpl`、`LoginResponse`、`UserInfoResponse`，将 `sys_role.permissions` JSON 数组以字符串列表形式下发到前端
+2. **前端权限基础设施**：
+   - 工具层 `permission.js`：提供 `hasPermission`、`hasAnyPermission`、`hasApprovalPermission`、`hasRole` 等纯函数
+   - 指令层 `v-permission`：自定义 Vue 指令，在挂载前检查权限，无权限则移除 DOM 元素
+   - Store 层 `auth.js`：扩展 `permissions` computed property 和 `checkPermission`/`checkAnyPermission`/`checkRole` 方法
+   - 路由层 `router/index.js`：增强 `beforeEach` 守卫，支持 `meta.permissionCheck` 函数拦截未授权导航
+3. **页面级权限适配**：
+   - `MainLayout.vue` 侧边栏：按权限动态计算 `showTodoMenu`、`showApprovalMenu`、`showUserMenuItem` 等
+   - `ApprovalManage.vue`：发起审批（`apply`）、审批操作（`approval:execute`）按钮权限控制
+   - `ApprovalDetail.vue`：通过/拒绝/提交按钮按状态+权限双条件控制
+   - `UserManage.vue` / `RoleManage.vue`：管理按钮按 `user_manage` / `role_manage` / `all` 控制
+
+**前端权限架构层次**：
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      前端权限控制架构                          │
+├─────────────────────────────────────────────────────────────┤
+│  数据层                                                       │
+│    └─ 后端下发 permissions: ["all", "approval", "user_manage"] │
+│         ↑ 存储于 Pinia authStore.userInfo.permissions         │
+├─────────────────────────────────────────────────────────────┤
+│  工具层  (src/utils/permission.js)                            │
+│    ├─ hasPermission(perms, perm) → boolean                   │
+│    ├─ hasAnyPermission(perms, requiredPerms) → boolean       │
+│    ├─ hasApprovalPermission(perms) → boolean                 │
+│    └─ hasRole(currentRole, roles) → boolean                  │
+├─────────────────────────────────────────────────────────────┤
+│  指令层  (src/directives/permission.js)                       │
+│    └─ v-permission="'user_manage'"                           │
+│         无权限时 el.parentNode?.removeChild(el)               │
+├─────────────────────────────────────────────────────────────┤
+│  Store层  (src/stores/auth.js)                                │
+│    ├─ permissions (computed) → 当前用户权限列表               │
+│    ├─ checkPermission(perm) → boolean                        │
+│    ├─ checkAnyPermission(perms) → boolean                    │
+│    └─ checkRole(roles) → boolean                             │
+├─────────────────────────────────────────────────────────────┤
+│  路由层  (src/router/index.js)                                │
+│    ├─ meta.permissionCheck: (perms) => boolean               │
+│    └─ beforeEach 中调用 checkRoutePermission 拦截             │
+├─────────────────────────────────────────────────────────────┤
+│  视图层                                                       │
+│    ├─ v-if="canShowMenu" / v-permission="'apply'"            │
+│    └─ 按钮级、菜单级、页面级权限控制                           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**权限编码与前端映射**：
+| 权限编码 | 前端控制点 | 默认角色 |
+|---------|-----------|---------|
+| `all` | 全部菜单/按钮 | admin |
+| `user_view` | 用户列表可见 | admin, manager |
+| `user_manage` | 用户增删改 | admin |
+| `role_manage` | 角色增删改 | admin |
+| `approval` | 审批列表、审批操作 | admin, manager |
+| `approval:execute` | 直接审批按钮 | admin, manager |
+| `approval:execute:dept` | 部门经理代审批 | manager |
+| `approval:execute:all` | 管理员代审批 | admin |
+| `apply` | 发起审批、提交、重新编辑、撤销 | admin, manager, employee |
+| `personal` | 个人资料、修改密码 | admin, manager, employee |
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/security/UserDetailsImpl.java` | 新增 `permissions` 字段，携带角色权限码 |
+| `oa-backend/dto/LoginResponse.java` / `UserInfoResponse.java` | 新增 `permissions` 字段 |
+| `oa-backend/service/impl/AuthServiceImpl.java` | 填充权限数据到响应 |
+| `oa-frontend/src/utils/permission.js` | 权限校验工具函数 |
+| `oa-frontend/src/directives/permission.js` | `v-permission` 自定义指令 |
+| `oa-frontend/src/stores/auth.js` | Store 扩展权限相关 computed 和方法 |
+| `oa-frontend/src/router/index.js` | 路由守卫 `permissionCheck` |
+| `oa-frontend/src/main.js` | 全局注册 `v-permission` 指令 |
+| `oa-frontend/src/layouts/MainLayout.vue` | 侧边栏菜单权限控制 |
+| `oa-frontend/src/views/ApprovalManage.vue` | 审批列表按钮权限控制 |
+| `oa-frontend/src/views/ApprovalDetail.vue` | 详情页操作按钮权限控制 |
+| `oa-frontend/src/views/UserManage.vue` / `RoleManage.vue` | 管理页面按钮权限控制 |
+
+---
+
+*最后更新: 2026-04-18 (R3修复完成：前端权限控制体系、v-permission指令、路由守卫、菜单/按钮级权限适配)*

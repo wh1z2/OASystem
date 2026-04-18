@@ -33,9 +33,11 @@ public class UserDetailsImpl implements UserDetails {
     @JsonIgnore
     private String password;
 
+    private List<String> permissions;
+
     private Collection<? extends GrantedAuthority> authorities;
 
-    public UserDetailsImpl(User user, String roleName, String deptName, Collection<? extends GrantedAuthority> authorities) {
+    public UserDetailsImpl(User user, String roleName, String deptName, List<String> permissions, Collection<? extends GrantedAuthority> authorities) {
         this.id = user.getId();
         this.username = user.getUsername();
         this.name = user.getName();
@@ -48,15 +50,16 @@ public class UserDetailsImpl implements UserDetails {
         this.deptName = deptName;
         this.status = user.getStatus();
         this.password = user.getPassword();
+        this.permissions = permissions != null ? permissions : Collections.emptyList();
         this.authorities = authorities;
     }
 
     public static UserDetailsImpl build(User user, String roleName, String deptName, List<String> permissions) {
-        List<SimpleGrantedAuthority> authorities = permissions.stream()
+        List<SimpleGrantedAuthority> authorities = permissions != null ? permissions.stream()
                 .filter(permission -> permission != null && !permission.isEmpty())
                 .map(SimpleGrantedAuthority::new)
-                .toList();
-        return new UserDetailsImpl(user, roleName, deptName, authorities);
+                .toList() : Collections.emptyList();
+        return new UserDetailsImpl(user, roleName, deptName, permissions, authorities);
     }
 
     public static UserDetailsImpl build(User user, String roleName, String deptName) {

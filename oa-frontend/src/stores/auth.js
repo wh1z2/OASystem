@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import apiClient from '@/api/config.js'
+import { hasPermission, hasAnyPermission, hasRole } from '@/utils/permission.js'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -8,6 +9,34 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value)
   const currentUser = computed(() => user.value)
+  const permissions = computed(() => user.value?.permissions || [])
+
+  /**
+   * 检查当前用户是否拥有指定权限
+   * @param {string} permission
+   * @returns {boolean}
+   */
+  function checkPermission(permission) {
+    return hasPermission(permissions.value, permission)
+  }
+
+  /**
+   * 检查当前用户是否拥有任意一个指定权限
+   * @param {string[]} requiredPermissions
+   * @returns {boolean}
+   */
+  function checkAnyPermission(requiredPermissions) {
+    return hasAnyPermission(permissions.value, requiredPermissions)
+  }
+
+  /**
+   * 检查当前用户是否拥有指定角色
+   * @param {string|string[]} roles
+   * @returns {boolean}
+   */
+  function checkRole(roles) {
+    return hasRole(currentUser.value?.role, roles)
+  }
 
   // 登录 - 调用后端接口
   async function login(credentials) {
@@ -70,6 +99,10 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     isAuthenticated,
     currentUser,
+    permissions,
+    checkPermission,
+    checkAnyPermission,
+    checkRole,
     login,
     logout,
     initAuth,

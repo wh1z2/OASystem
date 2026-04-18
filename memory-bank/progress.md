@@ -443,6 +443,65 @@
 
 ---
 
+### 阶段九补充：R3 高风险项修复（前端权限控制） ✅
+
+**完成日期**: 2026-04-18
+
+**执行内容**:
+
+#### 1. 后端权限数据暴露
+- ✅ 修改 `UserDetailsImpl`：新增 `List<String> permissions` 字段，携带角色权限码列表
+- ✅ 修改 `LoginResponse.UserInfo` 和 `UserInfoResponse`：新增 `permissions` 字段
+- ✅ 修改 `AuthServiceImpl`：`login()` 和 `getCurrentUserInfo()` 正确填充权限数据
+
+#### 2. 前端权限基础设施
+- ✅ 新建 `permission.js`：核心工具函数 `hasPermission`、`hasAnyPermission`、`hasApprovalPermission` 等
+- ✅ 新建 `v-permission` 自定义指令：`src/directives/permission.js`，无权限时移除 DOM 元素
+- ✅ 扩展 `auth.js` Pinia Store：新增 `permissions` computed、辅助方法 `checkPermission`/`checkAnyPermission`/`checkRole`
+- ✅ 增强 `router/index.js`：路由守卫增加 `meta.permissionCheck` 函数拦截
+- ✅ 注册全局指令：`main.js` 中 `app.directive('permission', permissionDirective)`
+
+#### 3. 页面级权限适配
+- ✅ `MainLayout.vue`：侧边栏菜单按权限动态显隐（待办/已办/审批流程/用户管理/角色管理/表单设计器）
+- ✅ `ApprovalManage.vue`：“发起审批”按钮（`apply` 权限）、“审批”按钮（`approval:execute` 权限）
+- ✅ `ApprovalDetail.vue`：审批操作区按权限和工单状态控制，无权限时显示提示
+- ✅ `UserManage.vue`：增删改按钮仅限 `user_manage` / `all`
+- ✅ `RoleManage.vue`：增删改按钮仅限 `role_manage` / `all`
+
+#### 4. 测试覆盖
+- ✅ 后端单元测试：`AuthPermissionTest.java`（3 个测试用例），验证 `/auth/login` 和 `/auth/info` 返回正确权限数组，全部通过
+- ✅ 前端页面测试方案：`frontend-r3-test-plan.md`，覆盖页面元素验证、交互流程、边界条件、异常场景
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| Security/DTO | `oa-backend/security/UserDetailsImpl.java` |
+| DTO | `oa-backend/dto/LoginResponse.java`, `oa-backend/dto/UserInfoResponse.java` |
+| Service | `oa-backend/service/impl/AuthServiceImpl.java` |
+| 单元测试 | `oa-backend/src/test/java/com/oasystem/controller/AuthPermissionTest.java` |
+| 前端工具 | `oa-frontend/src/utils/permission.js` |
+| 前端指令 | `oa-frontend/src/directives/permission.js` |
+| Store | `oa-frontend/src/stores/auth.js` |
+| 路由 | `oa-frontend/src/router/index.js` |
+| 入口 | `oa-frontend/src/main.js` |
+| 布局 | `oa-frontend/src/layouts/MainLayout.vue` |
+| 页面 | `oa-frontend/src/views/ApprovalManage.vue`, `ApprovalDetail.vue`, `UserManage.vue`, `RoleManage.vue` |
+| 测试文档 | `oa-backend/docs/api-test/frontend-r3-test-plan.md` |
+
+**验证状态**: ✅ 后端编译通过，单元测试通过；前端编译通过，权限控制生效
+
+**已知待完善问题**（评审记录）：
+1. 待办/已办初始加载逻辑存在时序问题，需确保直接调用后端接口
+2. 跨部门审批权限检查需支持 admin 无条件审批所有工单
+3. 工作台/个人中心快捷操作需根据角色权限动态显隐
+4. 重新编辑限制需收紧为仅草稿/已打回状态，已通过不可编辑
+5. 审批人指定逻辑需补充默认规则，前端不应由申请人指定审批人
+6. 撤销（REVOKE）操作按钮在前端页面疑似缺失
+7. 侧边栏徽章仅需保留待办计数，其余可去除
+8. 部门经理权限数据需补充表单设计器和发起审批权限
+
+---
+
 ### 阶段九补充：R1 高风险项修复（后端权限控制） ✅
 
 **完成日期**: 2026-04-14
@@ -497,12 +556,12 @@
 - [x] 阶段四：用户认证模块实现 ✅
 - [x] 阶段五：COLA状态机集成 ✅
 - [x] 阶段六：审批流程核心功能 ✅
-- [ ] 阶段七：前端接口对接 
+- [x] 阶段七：前端接口对接 ✅
 - [ ] 阶段八：表单设计器实现
-- [x] 阶段九：用户与角色管理（后端已完成，前端待对接） ✅
+- [x] 阶段九：用户与角色管理（后端已完成，前端已对接权限控制） ✅
 - [ ] 阶段十：系统测试与优化
 - [ ] 阶段十一：部署上线
 
 ---
 
-*最后更新: 2026-04-14 (R1修复完成：方法级权限控制、用户/角色管理后端、权限测试覆盖)*
+*最后更新: 2026-04-18 (R3修复完成：前端权限控制体系、v-permission指令、路由守卫、菜单/按钮级权限适配)*

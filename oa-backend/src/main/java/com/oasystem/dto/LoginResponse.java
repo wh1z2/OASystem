@@ -28,5 +28,6 @@ public class LoginResponse {
         private String role;
         private String roleLabel;
         private String department;
+        private java.util.List<String> permissions;
     }
 }

@@ -88,7 +88,7 @@
       <div class="space-y-6">
         <div class="card">
           <h3 class="text-lg font-semibold text-gray-900 mb-4">审批操作</h3>
-          <div v-if="approval.status === 'processing'" class="space-y-4">
+          <div v-if="approval.status === 'processing' && canExecuteApproval" class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">审批意见</label>
               <textarea v-model="comment" class="input h-24 resize-none" placeholder="请输入审批意见..."></textarea>
@@ -100,7 +100,13 @@
               拒绝审批
             </button>
           </div>
-          <div v-else-if="approval.status === 'draft'" class="space-y-4">
+          <div v-else-if="approval.status === 'processing' && !canExecuteApproval" class="text-center py-4">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-gray-300 mx-auto mb-2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            <p class="text-gray-500">您没有该工单的审批权限</p>
+          </div>
+          <div v-else-if="approval.status === 'draft' && canSubmit" class="space-y-4">
             <div class="text-center py-4">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-gray-300 mx-auto mb-2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
@@ -110,6 +116,12 @@
                 提交审批
               </button>
             </div>
+          </div>
+          <div v-else-if="approval.status === 'draft' && !canSubmit" class="text-center py-4">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-gray-300 mx-auto mb-2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+              </svg>
+            <p class="text-gray-500">草稿待提交</p>
           </div>
           <div v-else class="text-center py-4">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-gray-300 mx-auto mb-2">
@@ -171,16 +183,21 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
+import { useAuthStore } from '@/stores/auth'
+import { hasApprovalExecutePermission } from '@/utils/permission'
 
 const route = useRoute()
 const router = useRouter()
 const approvalStore = useApprovalStore()
+const authStore = useAuthStore()
 
 const comment = ref('')
 const loading = ref(false)
 
 const approval = computed(() => approvalStore.currentApproval)
 const approvalHistory = computed(() => approvalStore.approvalHistory)
+const canExecuteApproval = computed(() => hasApprovalExecutePermission(authStore.permissions))
+const canSubmit = computed(() => authStore.checkPermission('apply'))
 
 // 页面加载时获取详情和历史
 onMounted(async () => {

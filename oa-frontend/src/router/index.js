@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { hasPermission, hasAnyPermission, hasRole, hasApprovalPermission } from '@/utils/permission'
 
 const routes = [
   {
@@ -21,41 +22,49 @@ const routes = [
       {
         path: 'todo',
         name: 'TodoList',
+        meta: { permissionCheck: (perms) => hasApprovalPermission(perms) },
         component: () => import('@/views/TodoList.vue')
       },
       {
         path: 'done',
         name: 'DoneList',
+        meta: { permissionCheck: (perms) => hasApprovalPermission(perms) },
         component: () => import('@/views/DoneList.vue')
       },
       {
         path: 'approval',
         name: 'ApprovalManage',
+        meta: { permissionCheck: (perms) => hasApprovalPermission(perms) || hasPermission(perms, 'apply') },
         component: () => import('@/views/ApprovalManage.vue')
       },
       {
         path: 'approval/create',
         name: 'ApprovalCreate',
+        meta: { permissionCheck: (perms) => hasPermission(perms, 'apply') },
         component: () => import('@/views/ApprovalCreate.vue')
       },
       {
         path: 'approval/detail/:id',
         name: 'ApprovalDetail',
+        meta: { permissionCheck: (perms) => hasApprovalPermission(perms) || hasPermission(perms, 'apply') },
         component: () => import('@/views/ApprovalDetail.vue')
       },
       {
         path: 'form-designer',
         name: 'FormDesigner',
+        meta: { permissionCheck: (perms) => hasPermission(perms, 'all') },
         component: () => import('@/views/FormDesigner.vue')
       },
       {
         path: 'users',
         name: 'UserManage',
+        meta: { permissionCheck: (perms) => hasAnyPermission(perms, ['user_view', 'user_manage']) },
         component: () => import('@/views/UserManage.vue')
       },
       {
         path: 'roles',
         name: 'RoleManage',
+        meta: { permissionCheck: (perms) => hasPermission(perms, 'role_manage') || hasPermission(perms, 'all') },
         component: () => import('@/views/RoleManage.vue')
       },
       {
@@ -77,11 +86,23 @@ router.beforeEach((to, from, next) => {
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')
-  } else if (to.path === '/login' && authStore.isAuthenticated) {
-    next('/')
-  } else {
-    next()
+    return
   }
+
+  if (to.path === '/login' && authStore.isAuthenticated) {
+    next('/')
+    return
+  }
+
+  // 权限校验
+  if (to.meta.permissionCheck && typeof to.meta.permissionCheck === 'function') {
+    if (!to.meta.permissionCheck(authStore.permissions)) {
+      next('/')
+      return
+    }
+  }
+
+  next()
 })
 
 export default router

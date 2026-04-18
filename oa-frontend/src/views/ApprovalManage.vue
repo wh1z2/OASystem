@@ -28,7 +28,7 @@
           <option value="low">低</option>
         </select>
       </div>
-      <router-link to="/approval/create" class="btn btn-primary flex items-center gap-2">
+      <router-link v-if="canCreateApproval" to="/approval/create" class="btn btn-primary flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
@@ -91,7 +91,7 @@
                 <button @click="viewDetail(item.id)" class="text-primary-600 hover:text-primary-700 text-sm font-medium cursor-pointer">
                   查看
                 </button>
-                <button v-if="item.status === 'processing'" @click="showApproveModal(item)" class="text-success-600 hover:text-success-700 text-sm font-medium cursor-pointer">
+                <button v-if="item.status === 'processing' && canExecuteApproval" @click="showApproveModal(item)" class="text-success-600 hover:text-success-700 text-sm font-medium cursor-pointer">
                   审批
                 </button>
               </div>
@@ -134,9 +134,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
+import { useAuthStore } from '@/stores/auth'
+import { hasPermission, hasAnyPermission, hasApprovalPermission, hasApprovalExecutePermission } from '@/utils/permission'
 
 const router = useRouter()
 const approvalStore = useApprovalStore()
+const authStore = useAuthStore()
+
+const canCreateApproval = computed(() => authStore.checkPermission('apply'))
+const canExecuteApproval = computed(() => hasApprovalExecutePermission(authStore.permissions))
 
 const searchQuery = ref('')
 const filterType = ref('')

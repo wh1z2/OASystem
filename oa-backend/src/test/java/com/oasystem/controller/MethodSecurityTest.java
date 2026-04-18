@@ -237,9 +237,9 @@ class MethodSecurityTest {
     void testAuthenticatedCanAccessStatistics() throws Exception {
         when(approvalService.getDashboardStatistics(anyLong())).thenReturn(new DashboardStatisticsResponse());
 
-        UserDetailsImpl mockUser = new UserDetailsImpl(
+        UserDetailsImpl mockUser = UserDetailsImpl.build(
                 new com.oasystem.entity.User(), "employee", "技术部",
-                List.of(new SimpleGrantedAuthority("apply"))
+                List.of("apply")
         );
         mockUser.setId(1L);
 

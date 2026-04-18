@@ -47,7 +47,8 @@ public class AuthServiceImpl implements AuthService {
                 userDetails.getAvatar(),
                 userDetails.getRoleName(),
                 userDetails.getRoleLabel(),
-                userDetails.getDeptName()
+                userDetails.getDeptName(),
+                userDetails.getPermissions()
         );
 
         return new LoginResponse(
