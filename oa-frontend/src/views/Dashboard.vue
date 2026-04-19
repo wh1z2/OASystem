@@ -166,7 +166,7 @@ const approvalStore = useApprovalStore()
 const authStore = useAuthStore()
 
 const canAccessApproval = computed(() => hasApprovalPermission(authStore.permissions))
-const canAccessFormDesigner = computed(() => hasPermission(authStore.permissions, 'all'))
+const canAccessFormDesigner = computed(() => hasPermission(authStore.permissions, 'form_design'))
 
 // 页面加载时获取统计数据和待办列表
 onMounted(() => {

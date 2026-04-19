@@ -147,7 +147,7 @@ const myApprovalCount = computed(() => approvalStore.myApprovalCount)
 const showTodoMenu = computed(() => hasApprovalPermission(authStore.permissions))
 const showDoneMenu = computed(() => hasApprovalPermission(authStore.permissions))
 const showApprovalMenu = computed(() => hasApprovalPermission(authStore.permissions) || authStore.checkPermission('apply'))
-const showFormDesignerMenu = computed(() => authStore.checkPermission('all'))
+const showFormDesignerMenu = computed(() => authStore.checkPermission('form_design'))
 const showUserMenuItem = computed(() => authStore.checkAnyPermission(['user_view', 'user_manage']))
 const showRoleMenu = computed(() => authStore.checkPermission('role_manage') || authStore.checkPermission('all'))
 

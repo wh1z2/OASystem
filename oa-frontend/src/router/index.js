@@ -52,7 +52,7 @@ const routes = [
       {
         path: 'form-designer',
         name: 'FormDesigner',
-        meta: { permissionCheck: (perms) => hasPermission(perms, 'all') },
+        meta: { permissionCheck: (perms) => hasPermission(perms, 'form_design') },
         component: () => import('@/views/FormDesigner.vue')
       },
       {
