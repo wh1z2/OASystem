@@ -925,6 +925,30 @@ const myApprovals = ref([])     // MyApprovals 专用
 | `oa-frontend/src/views/TodoList.vue` | 绑定 `todoApprovals`，增加错误状态展示 |
 | `oa-frontend/src/views/DoneList.vue` | 绑定 `doneApprovals`，增加错误状态展示 |
 
+### R3 修复补充：前端页面内部权限管控（视图层细化）
+
+**问题背景**：
+R3 修复已完成侧边栏菜单级权限控制，但页面内部的快捷操作、统计卡片、内容区域未做权限隔离，导致普通员工仍可在工作台看到「待办审批」「已办事项」「表单设计」入口，个人中心也显示无权限快捷操作。
+
+**修复方案**：
+1. **统计卡片权限隔离**：工作台顶部统计卡片按权限条件渲染，普通员工（仅有 `apply` 权限）仅展示「本月申请」，隐藏「待办事项」「已通过」「已拒绝」
+2. **内容区域权限隔离**：待办事项列表块整体按 `canAccessApproval` 控制，无权限时不渲染左侧列表区
+3. **快捷操作权限隔离**：工作台和个人中心的快捷操作按钮均使用 `v-if` 按权限显隐
+4. **布局自适应**：当左侧列表区隐藏时，右侧快捷操作区自动占满全宽，避免页面空洞
+
+**权限判断复用**：
+```javascript
+// Dashboard.vue / Profile.vue 统一使用与侧边栏一致的判断逻辑
+const canAccessApproval = computed(() => hasApprovalPermission(authStore.permissions))
+const canAccessFormDesigner = computed(() => hasPermission(authStore.permissions, 'all'))
+```
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-frontend/src/views/Dashboard.vue` | 统计卡片、待办列表、快捷操作按权限渲染 |
+| `oa-frontend/src/views/Profile.vue` | 快捷操作按权限渲染 |
+
 ### 403 异常处理路径统一
 
 **问题背景**：
@@ -956,4 +980,4 @@ const myApprovals = ref([])     // MyApprovals 专用
 
 ---
 
-*最后更新: 2026-04-19 (审批模块权限审计修复完成：Store状态完全隔离、403统一路径、权限日志增强、异常数据修复)*
+*最后更新: 2026-04-19 (R3前端页面内部权限管控修复：工作台/个人中心快捷操作及统计板块按权限渲染)*

@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div class="card">
+      <div v-if="canAccessApproval" class="card">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-primary-600">
@@ -15,7 +15,7 @@
         </div>
       </div>
       
-      <div class="card">
+      <div v-if="canAccessApproval" class="card">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-success-50 rounded-xl flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-success-500">
@@ -29,7 +29,7 @@
         </div>
       </div>
       
-      <div class="card">
+      <div v-if="canAccessApproval" class="card">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-danger-50 rounded-xl flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-danger-500">
@@ -59,7 +59,7 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2">
+      <div v-if="canAccessApproval" class="lg:col-span-2">
         <div class="card">
           <div class="flex items-center justify-between mb-6">
             <h3 class="text-lg font-semibold text-gray-900">待办事项</h3>
@@ -103,32 +103,32 @@
         </div>
       </div>
 
-      <div class="space-y-6">
+      <div :class="canAccessApproval ? 'space-y-6' : 'space-y-6 lg:col-span-3'">
         <div class="card">
           <h3 class="text-lg font-semibold text-gray-900 mb-4">快捷操作</h3>
-          <div class="grid grid-cols-2 gap-3">
-            <router-link to="/approval/create" 
+          <div :class="canAccessApproval ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-1 sm:grid-cols-3 gap-3'">
+            <router-link to="/approval/create"
                         class="p-4 bg-primary-50 rounded-lg text-center hover:bg-primary-100 transition-colors cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-primary-600 mx-auto mb-2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               <span class="text-sm font-medium text-primary-600">发起申请</span>
             </router-link>
-            <router-link to="/todo" 
+            <router-link v-if="canAccessApproval" to="/todo"
                         class="p-4 bg-warning-50 rounded-lg text-center hover:bg-warning-100 transition-colors cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-warning-500 mx-auto mb-2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span class="text-sm font-medium text-warning-600">待办审批</span>
             </router-link>
-            <router-link to="/done" 
+            <router-link v-if="canAccessApproval" to="/done"
                         class="p-4 bg-success-50 rounded-lg text-center hover:bg-success-100 transition-colors cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-success-500 mx-auto mb-2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span class="text-sm font-medium text-success-600">已办事项</span>
             </router-link>
-            <router-link to="/form-designer" 
+            <router-link v-if="canAccessFormDesigner" to="/form-designer"
                         class="p-4 bg-gray-100 rounded-lg text-center hover:bg-gray-200 transition-colors cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-gray-600 mx-auto mb-2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
@@ -158,9 +158,15 @@
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
+import { useAuthStore } from '@/stores/auth'
+import { hasApprovalPermission, hasPermission } from '@/utils/permission'
 
 const router = useRouter()
 const approvalStore = useApprovalStore()
+const authStore = useAuthStore()
+
+const canAccessApproval = computed(() => hasApprovalPermission(authStore.permissions))
+const canAccessFormDesigner = computed(() => hasPermission(authStore.permissions, 'all'))
 
 // 页面加载时获取统计数据和待办列表
 onMounted(() => {

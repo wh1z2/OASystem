@@ -147,11 +147,11 @@
               <p class="font-medium text-primary-600">发起审批</p>
               <p class="text-xs text-primary-500">提交新的审批申请</p>
             </router-link>
-            <router-link to="/todo" class="block p-3 bg-warning-50 rounded-lg hover:bg-warning-100 transition-colors cursor-pointer">
+            <router-link v-if="canAccessApproval" to="/todo" class="block p-3 bg-warning-50 rounded-lg hover:bg-warning-100 transition-colors cursor-pointer">
               <p class="font-medium text-warning-600">待办事项</p>
               <p class="text-xs text-warning-500">查看待处理的审批</p>
             </router-link>
-            <router-link to="/done" class="block p-3 bg-success-50 rounded-lg hover:bg-success-100 transition-colors cursor-pointer">
+            <router-link v-if="canAccessApproval" to="/done" class="block p-3 bg-success-50 rounded-lg hover:bg-success-100 transition-colors cursor-pointer">
               <p class="font-medium text-success-600">已办事项</p>
               <p class="text-xs text-success-500">查看已处理的审批</p>
             </router-link>
@@ -167,10 +167,13 @@ import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useApprovalStore } from '@/stores/approval'
 import { useUserStore } from '@/stores/user'
+import { hasApprovalPermission } from '@/utils/permission'
 
 const authStore = useAuthStore()
 const approvalStore = useApprovalStore()
 const userStore = useUserStore()
+
+const canAccessApproval = computed(() => hasApprovalPermission(authStore.permissions))
 
 const form = ref({
   name: '',
