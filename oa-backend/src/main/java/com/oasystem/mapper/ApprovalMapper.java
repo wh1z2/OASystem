@@ -39,6 +39,12 @@ public interface ApprovalMapper extends BaseMapper<Approval> {
     Long countTodoByApproverId(@Param("approverId") Long approverId);
 
     /**
+     * 查询全系统待办工单数量（admin 统计用）
+     */
+    @Select("SELECT COUNT(*) FROM oa_approval WHERE status = 1")
+    Long countAllTodos();
+
+    /**
      * 查询用户已通过的工单数量
      */
     @Select("SELECT COUNT(*) FROM oa_approval WHERE applicant_id = #{applicantId} AND status = 2")

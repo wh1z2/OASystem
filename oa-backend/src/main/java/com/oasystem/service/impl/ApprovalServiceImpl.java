@@ -489,10 +489,18 @@ public class ApprovalServiceImpl implements ApprovalService {
             return PageResult.of(Collections.emptyList(), 0L, query.getPageNum(), query.getPageSize());
         }
 
-        // 查询待办工单（审批中且当前审批人是该用户）
+        // 获取当前用户信息（含角色），用于判断是否为 admin
+        User currentUser = userMapper.selectByIdWithRole(approverId);
+
+        // 查询待办工单（审批中）
         LambdaQueryWrapper<Approval> wrapper = Wrappers.lambdaQuery();
-        wrapper.eq(Approval::getCurrentApproverId, approverId);
         wrapper.eq(Approval::getStatus, ApprovalStatus.PROCESSING.getCode());
+
+        // 非 admin 用户，只查询指派给自己的待办；admin 查询全系统待办
+        if (currentUser == null || !"admin".equals(currentUser.getRoleName())) {
+            wrapper.eq(Approval::getCurrentApproverId, approverId);
+        }
+
         wrapper.orderByDesc(Approval::getCreateTime);
 
         List<Approval> approvals = approvalMapper.selectList(wrapper);
@@ -620,8 +628,16 @@ public class ApprovalServiceImpl implements ApprovalService {
 
         DashboardStatisticsResponse response = new DashboardStatisticsResponse();
 
-        // 待办数量（当前用户作为审批人，状态为审批中）
-        Long pendingCount = approvalMapper.countTodoByApproverId(userId);
+        // 获取当前用户信息（含角色），用于判断是否为 admin
+        User currentUser = userMapper.selectByIdWithRole(userId);
+
+        // 待办数量：admin 查看全系统待办，其他用户查看指派给自己的待办
+        Long pendingCount;
+        if (currentUser != null && "admin".equals(currentUser.getRoleName())) {
+            pendingCount = approvalMapper.countAllTodos();
+        } else {
+            pendingCount = approvalMapper.countTodoByApproverId(userId);
+        }
         response.setPendingCount(pendingCount != null ? pendingCount : 0L);
 
         // 已通过数量（当前用户作为审批人，审批通过的去重工单数）

@@ -660,7 +660,7 @@ const myTotal = ref(0)     // 我的申请总数，独立存储
 
 | 字段 | 数据来源 | 视角 | 说明 |
 |------|----------|------|------|
-| `pendingCount` | `oa_approval` | 审批人 | 当前用户作为 `current_approver_id` 且 `status=1`(审批中) 的工单数 |
+| `pendingCount` | `oa_approval` | 审批人 | 当前用户作为 `current_approver_id` 且 `status=1`(审批中) 的工单数；**admin 角色统计全系统待办数** |
 | `approvedCount` | `oa_approval_history` | 审批人 | 当前用户在历史记录中 `action=1`(通过) 的去重工单数 |
 | `rejectedCount` | `oa_approval_history` | 审批人 | 当前用户在历史记录中 `action=2`(拒绝) 的去重工单数 |
 | `myApprovalCount` | `oa_approval` | 申请人 | 当前用户作为 `applicant_id` 发起的工单总数 |
@@ -978,6 +978,32 @@ const canAccessFormDesigner = computed(() => hasPermission(authStore.permissions
 | `oa-backend/security/RestAccessDeniedHandler.java` | 统一 403 响应处理器，含诊断日志 |
 | `oa-backend/exception/GlobalExceptionHandler.java` | 移除 `@ExceptionHandler(AccessDeniedException.class)` |
 
+### Admin 权限增强：数据查询维度全局视野
+
+**问题背景**：
+后端审批操作层面已实现 4 级权限层级（直接审批 / 管理员代审批 / 经理代审批 / 拒绝），admin 可审批任意工单。但数据查询层面（待办列表、工作台统计）仍按 `current_approver_id = 自己` 过滤，admin 只能看到指派给自己的待办，无法看到全系统待审批工单。
+
+**修复方案**：
+1. **`getTodoList()`**：查询前获取当前用户角色，admin 角色不加 `current_approver_id` 过滤条件，返回全系统 `status=1` 工单。
+2. **`getDashboardStatistics()`**：admin 的 `pendingCount` 使用 `countAllTodos()` 统计全系统待办数，其他角色仍使用 `countTodoByApproverId()` 统计个人待办。
+
+**权限判断逻辑**：
+```java
+User currentUser = userMapper.selectByIdWithRole(userId);
+if (currentUser != null && "admin".equals(currentUser.getRoleName())) {
+    // admin：全系统视角
+} else {
+    // 其他角色：个人视角
+}
+```
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/mapper/ApprovalMapper.java` | 新增 `countAllTodos()` 方法 |
+| `oa-backend/service/impl/ApprovalServiceImpl.java` | `getTodoList()` / `getDashboardStatistics()` 增加角色判断 |
+| `oa-backend/src/test/java/com/oasystem/service/AdminPermissionEnhancementTest.java` | 新增 7 个测试用例覆盖 admin/经理/员工的待办和统计 |
+
 ---
 
-*最后更新: 2026-04-19 (R3前端页面内部权限管控修复：工作台/个人中心快捷操作及统计板块按权限渲染)*
+*最后更新: 2026-04-19 (Admin 权限增强：数据查询维度全局视野，待办列表/工作台统计支持 admin 查看全系统待办)*
