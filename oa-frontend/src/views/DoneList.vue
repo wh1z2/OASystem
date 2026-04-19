@@ -6,7 +6,7 @@
         <select v-model="filterStatus" class="input w-32">
           <option value="">全部状态</option>
           <option value="approved">已通过</option>
-          <option value="rejected">已拒绝</option>
+          <option value="returned">已打回</option>
         </select>
       </div>
     </div>
