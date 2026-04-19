@@ -99,6 +99,20 @@
             <button @click="handleApprove('rejected')" class="btn btn-danger w-full">
               拒绝审批
             </button>
+            <button v-if="canRevoke" @click="handleRevoke" class="btn btn-secondary w-full">
+              撤销申请
+            </button>
+          </div>
+          <div v-else-if="approval.status === 'processing' && !canExecuteApproval && canRevoke" class="space-y-4">
+            <div class="text-center py-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-gray-300 mx-auto mb-2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p class="text-gray-500 mb-4">您可撤销该申请</p>
+              <button @click="handleRevoke" class="btn btn-danger w-full">
+                撤销申请
+              </button>
+            </div>
           </div>
           <div v-else-if="approval.status === 'processing' && !canExecuteApproval" class="text-center py-4">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-gray-300 mx-auto mb-2">
@@ -176,6 +190,13 @@
         返回列表
       </router-link>
     </div>
+    <ConfirmDialog
+      :visible="showRevokeConfirm"
+      title="撤销申请"
+      message="确定要撤销该申请吗？撤销后该工单将变为草稿状态。"
+      @confirm="handleRevokeConfirm"
+      @cancel="showRevokeConfirm = false"
+    />
   </div>
 </template>
 
@@ -185,6 +206,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
 import { useAuthStore } from '@/stores/auth'
 import { hasApprovalExecutePermission } from '@/utils/permission'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -193,11 +215,16 @@ const authStore = useAuthStore()
 
 const comment = ref('')
 const loading = ref(false)
+const showRevokeConfirm = ref(false)
 
 const approval = computed(() => approvalStore.currentApproval)
 const approvalHistory = computed(() => approvalStore.approvalHistory)
 const canExecuteApproval = computed(() => hasApprovalExecutePermission(authStore.permissions))
 const canSubmit = computed(() => authStore.checkPermission('apply'))
+const canRevoke = computed(() =>
+  approval.value?.status === 'processing' &&
+  approval.value?.applicantId === authStore.currentUser?.id
+)
 
 // 页面加载时获取详情和历史
 onMounted(async () => {
@@ -262,6 +289,24 @@ async function handleApprove(action) {
 
   if (result.success) {
     router.push('/approval')
+  }
+}
+
+function handleRevoke() {
+  if (!approval.value) return
+  showRevokeConfirm.value = true
+}
+
+async function handleRevokeConfirm() {
+  showRevokeConfirm.value = false
+  if (!approval.value) return
+
+  const result = await approvalStore.revokeApproval(approval.value.id)
+
+  if (result.success) {
+    router.push('/approval')
+  } else {
+    alert('撤销失败：' + result.message)
   }
 }
 
