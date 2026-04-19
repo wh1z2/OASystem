@@ -2,7 +2,6 @@ package com.oasystem.exception;
 
 import com.oasystem.dto.Result;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -58,15 +57,6 @@ public class GlobalExceptionHandler {
     public Result<Void> handleBadCredentialsException(BadCredentialsException e) {
         log.warn("认证失败: {}", e.getMessage());
         return Result.unauthorized("用户名或密码错误");
-    }
-
-    /**
-     * 处理权限异常
-     */
-    @ExceptionHandler(AccessDeniedException.class)
-    public Result<Void> handleAccessDeniedException(AccessDeniedException e) {
-        log.warn("权限不足: {}", e.getMessage());
-        return Result.forbidden("无权访问该资源");
     }
 
     /**

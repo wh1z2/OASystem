@@ -8,6 +8,14 @@
     </div>
 
     <div class="space-y-4">
+      <div v-if="error" class="card text-center py-12">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-16 h-16 text-danger-300 mx-auto mb-4">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+        <p class="text-danger-500 text-lg">加载失败</p>
+        <p class="text-gray-400 text-sm mt-1">{{ error }}</p>
+      </div>
+
       <div v-for="item in pendingApprovals" :key="item.id" 
            class="card hover:shadow-md transition-shadow cursor-pointer"
            @click="goToDetail(item.id)">
@@ -81,7 +89,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
 
@@ -89,10 +97,15 @@ const router = useRouter()
 const approvalStore = useApprovalStore()
 
 const pendingApprovals = computed(() => approvalStore.pendingApprovals)
+const error = ref(null)
 
 // 页面加载时获取待办列表
-onMounted(() => {
-  approvalStore.fetchTodoList()
+onMounted(async () => {
+  error.value = null
+  const result = await approvalStore.fetchTodoList()
+  if (!result.success) {
+    error.value = result.message || '加载失败，请检查权限'
+  }
 })
 
 function getPriorityLabel(priority) {

@@ -28,8 +28,14 @@ const priorityMap = {
 }
 
 export const useApprovalStore = defineStore('approval', () => {
-  // 审批列表
+  // 审批列表（ApprovalManage 专用）
   const approvals = ref([])
+  // 待办列表（TodoList 专用）
+  const todoApprovals = ref([])
+  // 已办列表（DoneList 专用）
+  const doneApprovals = ref([])
+  // 我的申请列表（MyApprovals 专用）
+  const myApprovals = ref([])
   // 当前审批详情
   const currentApproval = ref(null)
   // 审批历史
@@ -49,7 +55,7 @@ export const useApprovalStore = defineStore('approval', () => {
 
   // 计算属性 - 待办列表 (状态为 processing)
   const pendingApprovals = computed(() =>
-    approvals.value.filter(a => a.status === 'processing')
+    todoApprovals.value.filter(a => a.status === 'processing')
   )
 
   // 计算属性 - 已通过列表
@@ -105,6 +111,8 @@ export const useApprovalStore = defineStore('approval', () => {
       pagination.value = { current, size, total }
       return { success: true, data: approvals.value }
     } catch (error) {
+      approvals.value = []
+      pagination.value = { current: 1, size: 10, total: 0 }
       return { success: false, message: error.message }
     }
   }
@@ -217,12 +225,15 @@ export const useApprovalStore = defineStore('approval', () => {
           size: params.size || 10
         }
       })
-      approvals.value = records.map(transformApproval)
+      todoApprovals.value = records.map(transformApproval)
       pagination.value = { current, size, total }
       // 独立存储待办总数，用于侧边栏徽章（不受其他分页影响）
       todoTotal.value = total
-      return { success: true, data: approvals.value }
+      return { success: true, data: todoApprovals.value }
     } catch (error) {
+      todoApprovals.value = []
+      pagination.value = { current: 1, size: 10, total: 0 }
+      todoTotal.value = 0
       return { success: false, message: error.message }
     }
   }
@@ -236,12 +247,15 @@ export const useApprovalStore = defineStore('approval', () => {
           size: params.size || 10
         }
       })
-      approvals.value = records.map(transformApproval)
+      doneApprovals.value = records.map(transformApproval)
       pagination.value = { current, size, total }
       // 独立存储已办总数，用于侧边栏徽章（不受其他分页影响）
       doneTotal.value = total
-      return { success: true, data: approvals.value }
+      return { success: true, data: doneApprovals.value }
     } catch (error) {
+      doneApprovals.value = []
+      pagination.value = { current: 1, size: 10, total: 0 }
+      doneTotal.value = 0
       return { success: false, message: error.message }
     }
   }
@@ -255,12 +269,15 @@ export const useApprovalStore = defineStore('approval', () => {
           size: params.size || 10
         }
       })
-      approvals.value = records.map(transformApproval)
+      myApprovals.value = records.map(transformApproval)
       pagination.value = { current, size, total }
       // 独立存储我的申请总数，用于侧边栏徽章（不受其他分页影响）
       myTotal.value = total
-      return { success: true, data: approvals.value }
+      return { success: true, data: myApprovals.value }
     } catch (error) {
+      myApprovals.value = []
+      pagination.value = { current: 1, size: 10, total: 0 }
+      myTotal.value = 0
       return { success: false, message: error.message }
     }
   }
@@ -300,6 +317,9 @@ export const useApprovalStore = defineStore('approval', () => {
 
   return {
     approvals,
+    todoApprovals,
+    doneApprovals,
+    myApprovals,
     currentApproval,
     approvalHistory,
     pagination,

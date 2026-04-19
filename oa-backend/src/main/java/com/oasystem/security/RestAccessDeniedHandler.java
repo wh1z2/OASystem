@@ -7,6 +7,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
@@ -28,8 +30,16 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
                        HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException {
 
-        log.warn("权限不足，拒绝访问: {} {}, 原因: {}",
-                request.getMethod(), request.getRequestURI(), accessDeniedException.getMessage());
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null) {
+            log.warn("权限不足，拒绝访问: {} {}, 用户: {}, authorities: {}, 原因: {}",
+                    request.getMethod(), request.getRequestURI(),
+                    authentication.getName(), authentication.getAuthorities(),
+                    accessDeniedException.getMessage());
+        } else {
+            log.warn("权限不足，拒绝访问: {} {}, 未认证用户, 原因: {}",
+                    request.getMethod(), request.getRequestURI(), accessDeniedException.getMessage());
+        }
 
         // 构建统一的响应格式，HTTP 200 + 业务码403
         Result<Void> result = Result.forbidden("无权访问该资源，权限不足");

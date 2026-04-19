@@ -1,0 +1,1 @@
+-- ========================================================\n-- 修复异常工单数据\n-- 版本: V1.2\n-- 说明: 将 current_approver_id 为 NULL 但状态为 processing 的异常工单重置为 draft\n-- ========================================================\n\n-- 修复无审批人的 processing 工单\nUPDATE oa_approval SET status = 0 WHERE current_approver_id IS NULL AND status = 1;\n

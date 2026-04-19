@@ -12,7 +12,15 @@
     </div>
 
     <div class="space-y-4">
-      <div v-for="item in filteredApprovals" :key="item.id" 
+      <div v-if="error" class="card text-center py-12">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-16 h-16 text-danger-300 mx-auto mb-4">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+        <p class="text-danger-500 text-lg">加载失败</p>
+        <p class="text-gray-400 text-sm mt-1">{{ error }}</p>
+      </div>
+
+      <div v-for="item in filteredApprovals" :key="item.id"
            class="card hover:shadow-md transition-shadow cursor-pointer"
            @click="goToDetail(item.id)">
         <div class="flex items-start gap-4">
@@ -86,16 +94,21 @@ const router = useRouter()
 const approvalStore = useApprovalStore()
 
 const filterStatus = ref('')
+const error = ref(null)
 
 const filteredApprovals = computed(() => {
-  // 已办列表从后端获取
-  if (!filterStatus.value) return approvalStore.approvals
-  return approvalStore.approvals.filter(item => item.status === filterStatus.value)
+  // 已办列表从独立状态获取
+  if (!filterStatus.value) return approvalStore.doneApprovals
+  return approvalStore.doneApprovals.filter(item => item.status === filterStatus.value)
 })
 
 // 页面加载时获取已办列表
-onMounted(() => {
-  approvalStore.fetchDoneList()
+onMounted(async () => {
+  error.value = null
+  const result = await approvalStore.fetchDoneList()
+  if (!result.success) {
+    error.value = result.message || '加载失败，请检查权限'
+  }
 })
 
 function getStatusLabel(status) {

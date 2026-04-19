@@ -135,7 +135,7 @@ public class ApprovalController {
      * 获取待办列表
      */
     @GetMapping("/todo")
-    @PreAuthorize("hasAnyAuthority('approval', 'all')")
+    @PreAuthorize("isAuthenticated()")
     public Result<PageResult<ApprovalDetailResponse>> getTodoList(ApprovalQuery query) {
         Long approverId = getCurrentUserId();
         PageResult<ApprovalDetailResponse> result = approvalService.getTodoList(approverId, query);
@@ -146,7 +146,7 @@ public class ApprovalController {
      * 获取已办列表
      */
     @GetMapping("/done")
-    @PreAuthorize("hasAnyAuthority('approval', 'all')")
+    @PreAuthorize("isAuthenticated()")
     public Result<PageResult<ApprovalDetailResponse>> getDoneList(ApprovalQuery query) {
         Long approverId = getCurrentUserId();
         PageResult<ApprovalDetailResponse> result = approvalService.getDoneList(approverId, query);

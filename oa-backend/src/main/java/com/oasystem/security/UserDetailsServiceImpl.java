@@ -39,6 +39,9 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         }
 
         Role role = roleMapper.selectById(user.getRoleId());
+        if (role == null) {
+            log.error("用户 {} 的角色不存在, roleId={}", username, user.getRoleId());
+        }
         String roleName = role != null ? role.getName() : "";
         String roleLabel = role != null ? role.getLabel() : "";
 
@@ -46,11 +49,16 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         String deptName = dept != null ? dept.getName() : "";
 
         List<String> permissions = Collections.emptyList();
-        if (role != null && role.getPermissions() != null && !role.getPermissions().isEmpty()) {
-            try {
-                permissions = JSON.parseArray(role.getPermissions(), String.class);
-            } catch (Exception e) {
-                log.warn("解析角色权限失败: {}", e.getMessage());
+        if (role != null) {
+            if (role.getPermissions() == null || role.getPermissions().isEmpty()) {
+                log.error("角色 {}(id={}) 的权限为空", role.getName(), role.getId());
+            } else {
+                try {
+                    permissions = JSON.parseArray(role.getPermissions(), String.class);
+                    log.info("用户 {} 加载权限成功, roleId={}, permissions={}", username, role.getId(), permissions);
+                } catch (Exception e) {
+                    log.error("解析角色权限失败, roleId={}, permissions={}", role.getId(), role.getPermissions(), e);
+                }
             }
         }
 

@@ -491,8 +491,8 @@
 **验证状态**: ✅ 后端编译通过，单元测试通过；前端编译通过，权限控制生效
 
 **已知待完善问题**（评审记录）：
-- [ ] 登录张经理账号，点击待办事项后显示暂无待办事项（表里有一个部门为财务部，审批人为张经理的工单），如附件图1，然后点击了审批流程之后又能显示出待办事项了，如附件图2。
-- [ ] 现在表里有一个财务部的工单待审批，审批人是张经理，张经理本身是技术部的，工单详情页点击通过审批或者是待办事项页面点击快速审批都无反应，后端控制台输出权限不足如附件图3
+- [x] 登录张经理账号，点击待办事项后显示暂无待办事项（表里有一个部门为财务部，审批人为张经理的工单），如附件图1，然后点击了审批流程之后又能显示出待办事项了，如附件图2。
+- [x] 现在表里有一个财务部的工单待审批，审批人是张经理，张经理本身是技术部的，工单详情页点击通过审批或者是待办事项页面点击快速审批都无反应，后端控制台输出权限不足如附件图3
 - [ ] 当我登录普通员工账号时，虽然侧边栏不显示无权限的菜单项了，但是工作台页面的快捷操作里面依旧有代办审、已办事项、表单设计，并且个人中心的快捷操作里也包含待办事项、已办事项。如果决定待办事项和已办事项不对普通员工显示，那么普通员工的工作台页面的已通过、已拒绝是否也可以隐藏，仅显示本月申请？
 - [ ] 需要补充一条规则：admin可以审批所有工单，无论审批人是不是admin，也不论是否跨部门，admin账号就是可以拥有所有操作的权限，所以admin的待办事项里面应该显示所有“审批中”的工单。
 - [ ] 部门经理应该添加表单设计器的权限
@@ -501,7 +501,7 @@
 - [ ] 我觉得审批流程和已办事项盘的颜色徽章是没必要的，可以去掉，仅需保证显示待办事项旁的徽章正确即可（不被其他列表查询操作影响）
 - [ ] 数据库权限表的内容还可以完善，目前部门经理竟然无法发起审批，不管是工作台页面快捷操作里的发起审批还是个人中心快捷操作里的发起审批都无法发起
 - [ ] 在前端页面中没有看到有“撤销（REVOKE）”的操作，疑似缺失
-- [ ] 仔细检查待办事项、已办事项、审批流程三个模块的前端代码逻辑。以待办事项、登录账号为张经理为例，我点击待办事项后只显示一条数据，利用浏览器开发者工具抓包得到此时的网络调用是调用了TodoList.vue而不是后端接口，这是严重错误。已办事项也是类似逻辑，无法显示正确数据。然后当我点击审批流程后再回去查看待办事项、已办事项时发现此时的查询结果才正确。
+- [x] 仔细检查待办事项、已办事项、审批流程三个模块的前端代码逻辑。以待办事项、登录账号为张经理为例，我点击待办事项后只显示一条数据，利用浏览器开发者工具抓包得到此时的网络调用是调用了TodoList.vue而不是后端接口，这是严重错误。已办事项也是类似逻辑，无法显示正确数据。然后当我点击审批流程后再回去查看待办事项、已办事项时发现此时的查询结果才正确。
 - [ ] 已办事项的筛选功能有误，当筛选下拉列表里有已通过和已拒绝，应该是已拒绝和已打回冲突了，后端规定的是拒绝后的工单状态时已打回而不是已拒绝，导致筛选不出。
 
 ---
@@ -568,4 +568,71 @@
 
 ---
 
-*最后更新: 2026-04-18 (R3修复完成：前端权限控制体系、v-permission指令、路由守卫、菜单/按钮级权限适配)*
+---
+
+### 阶段十补充：审批模块权限审计修复（基于 approval-module-fix-plan）✅
+
+**完成日期**: 2026-04-19
+
+**执行内容**:
+
+#### 1. 前端 Store 状态完全隔离（F1）
+- ✅ 将单一 `approvals` ref 拆分为四个独立状态：
+  - `approvals` — ApprovalManage 专用
+  - `todoApprovals` — TodoList 专用
+  - `doneApprovals` — DoneList 专用
+  - `myApprovals` — MyApprovals 专用
+- ✅ `pendingApprovals` 计算属性改为基于 `todoApprovals`，彻底消除模块间数据污染
+
+#### 2. 接口失败时清空状态（F2）
+- ✅ `fetchTodoList` / `fetchDoneList` / `fetchMyApprovals` / `fetchApprovals` 的 `catch` 块中清空对应状态数组
+- ✅ 同时将 `pagination` 和 `todoTotal`/`doneTotal`/`myTotal` 重置为初始值
+- ✅ 避免网络/权限异常时旧数据残留在 UI 上
+
+#### 3. 已办列表绑定独立状态（F3）
+- ✅ `DoneList.vue` 的 `filteredApprovals` 计算属性改为基于 `approvalStore.doneApprovals`
+- ✅ 解决此前 DoneList 和 TodoList 共用 `approvals` 导致的显示错乱
+
+#### 4. 接口失败时 UI 反馈（F4）
+- ✅ `TodoList.vue` 和 `DoneList.vue` 各增加 `error` ref
+- ✅ `onMounted` 中异步调用 fetch 方法，失败时显示错误提示卡片（含错误描述）
+- ✅ 空状态和错误状态分离显示
+
+#### 5. /todo /done 接口权限门槛统一（B1）
+- ✅ `ApprovalController.getTodoList()` 和 `getDoneList()` 的 `@PreAuthorize` 从 `hasAnyAuthority('approval', 'all')` 改为 `isAuthenticated()`
+- ✅ 列表查询的权限门槛与 `GET /approvals` 保持一致，数据隔离由 Service 层负责
+
+#### 6. 权限加载链路诊断日志（B2）
+- ✅ `UserDetailsServiceImpl.loadUserByUsername()` 增加全链路日志：
+  - `role == null` 时记录 error 日志（含 roleId）
+  - `permissions` 为空时记录 error 日志（含 roleName + roleId）
+  - 解析成功时记录 info 日志（含 permissions 内容）
+  - 解析失败时记录 error 日志（含异常堆栈）
+
+#### 7. 403 异常处理路径统一（B3）
+- ✅ 移除 `GlobalExceptionHandler` 中的 `@ExceptionHandler(AccessDeniedException.class)`
+- ✅ 统一由 `RestAccessDeniedHandler`（Filter 层）处理所有 403 响应
+- ✅ 增强 `RestAccessDeniedHandler` 诊断日志：记录当前用户名、authorities、请求方法和 URI
+
+#### 8. 异常工单数据修复（D1）
+- ✅ 创建 Flyway 迁移脚本 `V1_2__Fix_Abnormal_Approvals.sql`
+- ✅ SQL 逻辑：`UPDATE oa_approval SET status = 0 WHERE current_approver_id IS NULL AND status = 1`
+- ✅ 将无审批人的 processing 工单重置为 draft，避免待办列表查询出幽灵数据
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| Store 重构 | `oa-frontend/src/stores/approval.js` |
+| 页面修复 | `oa-frontend/src/views/TodoList.vue`, `oa-frontend/src/views/DoneList.vue` |
+| 权限修复 | `oa-backend/controller/ApprovalController.java` |
+| 日志增强 | `oa-backend/security/UserDetailsServiceImpl.java` |
+| 异常统一 | `oa-backend/security/RestAccessDeniedHandler.java`, `oa-backend/exception/GlobalExceptionHandler.java` |
+| 数据修复 | `oa-backend/resources/db/migration/V1_2__Fix_Abnormal_Approvals.sql` |
+| 修复计划 | `oa-backend/docs/approval-module/approval-module-fix-plan.md` |
+| 测试计划 | `oa-backend/docs/approval-module/approval-module-fix-test-plan.md` |
+
+**验证状态**: ✅ 代码修改完成，等待按测试计划执行验证
+
+---
+
+*最后更新: 2026-04-19 (审批模块权限审计修复完成：Store状态完全隔离、403统一路径、权限日志增强、异常数据修复)*

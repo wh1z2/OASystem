@@ -883,6 +883,77 @@ const myTotal = ref(0)     // 我的申请总数，独立存储
 | `oa-frontend/src/views/ApprovalDetail.vue` | 详情页操作按钮权限控制 |
 | `oa-frontend/src/views/UserManage.vue` / `RoleManage.vue` | 管理页面按钮权限控制 |
 
+### 审批模块 Store 状态完全隔离（架构升级）
+
+**问题背景**：
+阶段七补充中虽然引入了独立的 `todoTotal`/`doneTotal`/`myTotal` refs，但列表数据仍然共享同一个 `approvals` ref。当用户在 TodoList、DoneList、ApprovalManage 之间切换时，`fetchTodoList` 和 `fetchDoneList` 都会覆盖 `approvals.value`，导致：
+1. 切换到 DoneList 后返回 TodoList，若未重新请求则显示已办数据
+2. `pendingApprovals` 计算属性基于 `approvals.value` 过滤，在 DoneList 加载后会被污染
+3. 接口 403/500 失败时，旧数据残留在页面上，用户无法感知异常
+
+**解决方案**：
+将共享的 `approvals` 拆分为完全独立的四个状态：
+
+```javascript
+const approvals = ref([])       // ApprovalManage 专用
+const todoApprovals = ref([])   // TodoList 专用
+const doneApprovals = ref([])   // DoneList 专用
+const myApprovals = ref([])     // MyApprovals 专用
+```
+
+**fetch 方法职责分离**：
+| 方法 | 写入目标 | 失败时清空 |
+|------|---------|-----------|
+| `fetchApprovals` | `approvals` | `approvals = []` |
+| `fetchTodoList` | `todoApprovals` | `todoApprovals = []`, `todoTotal = 0` |
+| `fetchDoneList` | `doneApprovals` | `doneApprovals = []`, `doneTotal = 0` |
+| `fetchMyApprovals` | `myApprovals` | `myApprovals = []`, `myTotal = 0` |
+
+**计算属性绑定**：
+- `pendingApprovals` → `todoApprovals.value.filter(a => a.status === 'processing')`
+- `DoneList.filteredApprovals` → `approvalStore.doneApprovals`
+
+**架构原则**：
+- **一视图一状态**：每个列表视图拥有独立的响应式状态，互不干扰
+- **失败即清空**：任何接口异常都会将对应状态重置为初始值，避免脏数据残留
+- **错误可视化**：TodoList / DoneList 增加 `error` ref，失败时展示错误提示而非旧列表
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-frontend/src/stores/approval.js` | Store 核心，维护四个独立的列表状态 |
+| `oa-frontend/src/views/TodoList.vue` | 绑定 `todoApprovals`，增加错误状态展示 |
+| `oa-frontend/src/views/DoneList.vue` | 绑定 `doneApprovals`，增加错误状态展示 |
+
+### 403 异常处理路径统一
+
+**问题背景**：
+`GlobalExceptionHandler` 和 `RestAccessDeniedHandler` 同时处理了 `AccessDeniedException`，导致行为不一致：
+- Filter 层抛出的 403 → 由 `RestAccessDeniedHandler` 处理 → HTTP 200 + 业务码 403
+- Controller 层 `@PreAuthorize` 抛出的 403 → 被 `@ExceptionHandler` 捕获 → 可能返回不同格式
+
+**解决方案**：
+1. **移除 `@ExceptionHandler(AccessDeniedException.class)`**：`GlobalExceptionHandler` 不再捕获权限异常
+2. **统一由 `RestAccessDeniedHandler` 处理**：所有 `AccessDeniedException`（无论来源）最终都会经过 Spring Security 的 Filter 链，由 `AccessDeniedHandler` 处理
+3. **增强诊断日志**：在 `RestAccessDeniedHandler` 中记录当前认证用户名称、authorities、请求方法和 URI，便于排查权限问题
+
+**处理流程**：
+```
+请求 → Spring Security Filter Chain
+  → 认证通过，到达 @PreAuthorize
+    → 权限不足 → 抛出 AccessDeniedException
+      → ExceptionTranslationFilter 捕获
+        → 调用 RestAccessDeniedHandler.handle()
+          → 记录诊断日志（用户、权限、URI）
+          → 返回 HTTP 200 + Result.forbidden()
+```
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/security/RestAccessDeniedHandler.java` | 统一 403 响应处理器，含诊断日志 |
+| `oa-backend/exception/GlobalExceptionHandler.java` | 移除 `@ExceptionHandler(AccessDeniedException.class)` |
+
 ---
 
-*最后更新: 2026-04-18 (R3修复完成：前端权限控制体系、v-permission指令、路由守卫、菜单/按钮级权限适配)*
+*最后更新: 2026-04-19 (审批模块权限审计修复完成：Store状态完全隔离、403统一路径、权限日志增强、异常数据修复)*
