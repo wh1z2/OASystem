@@ -188,20 +188,48 @@ class ApprovalServiceTest {
     }
 
     /**
-     * 步骤五：测试重新编辑
+     * 步骤五：测试重新编辑（不带内容参数，仅状态回退）
      */
     @Test
     void testReeditApproval() {
         // 创建、提交、审批通过
         Long id = createSubmitAndApprove("测试重新编辑", USER_ID_LISI, USER_ID_MANAGER);
+        String originalTitle = approvalMapper.selectById(id).getTitle();
 
-        // 重新编辑
-        Boolean success = approvalService.reedit(id, USER_ID_LISI);
+        // 重新编辑（不带请求体）
+        Boolean success = approvalService.reedit(id, USER_ID_LISI, null);
         assertTrue(success);
 
-        // 验证状态变更
+        // 验证状态变更，内容不变
         Approval approval = approvalMapper.selectById(id);
         assertEquals(ApprovalStatus.DRAFT.getCode(), approval.getStatus());
+        assertEquals(originalTitle, approval.getTitle());
+    }
+
+    /**
+     * 步骤五：测试重新编辑并同步更新内容（已打回状态）
+     */
+    @Test
+    void testReeditWithContent() {
+        // 创建、提交、审批拒绝（变为已打回）
+        Long id = createSubmitAndReject("测试重新编辑并更新", USER_ID_LISI, USER_ID_MANAGER);
+
+        ApprovalUpdateRequest request = new ApprovalUpdateRequest();
+        request.setTitle("已更新标题");
+        request.setContent("已更新内容");
+        request.setPriority(2);
+        request.setFormData(Map.of("updated", true));
+
+        // 重新编辑并携带更新参数
+        Boolean success = approvalService.reedit(id, USER_ID_LISI, request);
+        assertTrue(success);
+
+        // 验证状态回退且内容同步更新
+        Approval approval = approvalMapper.selectById(id);
+        assertEquals(ApprovalStatus.DRAFT.getCode(), approval.getStatus());
+        assertEquals("已更新标题", approval.getTitle());
+        assertEquals("已更新内容", approval.getContent());
+        assertEquals(2, approval.getPriority());
     }
 
     /**
@@ -213,7 +241,7 @@ class ApprovalServiceTest {
         Long id = createSubmitAndApprove("测试重新编辑权限", USER_ID_LISI, USER_ID_MANAGER);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> {
-            approvalService.reedit(id, USER_ID_ZHANGSAN);
+            approvalService.reedit(id, USER_ID_ZHANGSAN, null);
         });
 
         assertEquals("当前状态不允许重新编辑", exception.getMessage());
@@ -438,6 +466,19 @@ class ApprovalServiceTest {
         ApprovalActionCmd cmd = new ApprovalActionCmd();
         cmd.setComment("同意");
         approvalService.approve(id, cmd, approverId);
+
+        return id;
+    }
+
+    /**
+     * 创建、提交并审批拒绝（变为已打回）
+     */
+    private Long createSubmitAndReject(String title, Long applicantId, Long approverId) {
+        Long id = createAndSubmitApproval(title, applicantId, approverId);
+
+        ApprovalActionCmd cmd = new ApprovalActionCmd();
+        cmd.setComment("信息不完整");
+        approvalService.reject(id, cmd, approverId);
 
         return id;
     }

@@ -110,13 +110,13 @@ public class ApprovalController {
     }
 
     /**
-     * 重新编辑
+     * 重新编辑（可选携带内容参数，实现一步到位更新）
      */
     @PostMapping("/{id}/reedit")
     @PreAuthorize("hasAnyAuthority('apply', 'all')")
-    public Result<Boolean> reedit(@PathVariable Long id) {
+    public Result<Boolean> reedit(@PathVariable Long id, @RequestBody(required = false) ApprovalUpdateRequest request) {
         Long operatorId = getCurrentUserId();
-        Boolean success = approvalService.reedit(id, operatorId);
+        Boolean success = approvalService.reedit(id, operatorId, request);
         return Result.success(success);
     }
 

@@ -138,10 +138,10 @@ export const useApprovalStore = defineStore('approval', () => {
     }
   }
 
-  // 更新审批工单
+  // 更新审批工单（仅草稿状态）
   async function updateApproval(id, approvalData) {
     try {
-      await apiClient.put(`/approvals/${id}`, approvalData)
+      await apiClient.post(`/approvals/${id}/update`, approvalData)
       return { success: true }
     } catch (error) {
       return { success: false, message: error.message }
@@ -196,10 +196,10 @@ export const useApprovalStore = defineStore('approval', () => {
     }
   }
 
-  // 重新编辑
-  async function reeditApproval(id) {
+  // 重新编辑（支持可选携带内容参数，实现一步到位更新）
+  async function reeditApproval(id, approvalData) {
     try {
-      await apiClient.post(`/approvals/${id}/reedit`)
+      await apiClient.post(`/approvals/${id}/reedit`, approvalData || {})
       return { success: true }
     } catch (error) {
       return { success: false, message: error.message }

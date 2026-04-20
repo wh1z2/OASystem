@@ -491,6 +491,7 @@
 **验证状态**: ✅ 后端编译通过，单元测试通过；前端编译通过，权限控制生效
 
 **已知待完善问题**（评审记录）：
+
 - [x] 登录张经理账号，点击待办事项后显示暂无待办事项（表里有一个部门为财务部，审批人为张经理的工单），如附件图1，然后点击了审批流程之后又能显示出待办事项了，如附件图2。
 - [x] 现在表里有一个财务部的工单待审批，审批人是张经理，张经理本身是技术部的，工单详情页点击通过审批或者是待办事项页面点击快速审批都无反应，后端控制台输出权限不足如附件图3
 - [x] 当我登录普通员工账号时，虽然侧边栏不显示无权限的菜单项了，但是工作台页面的快捷操作里面依旧有代办审、已办事项、表单设计，并且个人中心的快捷操作里也包含待办事项、已办事项。如果决定待办事项和已办事项不对普通员工显示，那么普通员工的工作台页面的已通过、已拒绝是否也可以隐藏，仅显示本月申请？
@@ -499,8 +500,8 @@
 - [ ] 当前重新编辑工单的设计是：可以对已通过或已打回的工单重新编辑，状态变回草稿，但是我觉得不太合理，已通过的工单不应可以再被编辑，所以设计应该变为可以对草稿或已打回的工单重新编辑
 - [ ] 当前的待审批人的指定逻辑我觉得是缺失的，虽然接口测试里可以在请求体里面设置待审批人，但是在前端页面中给发起审批人指定待审批人显然是不合理的，所以需要做到一个配置逻辑，默认情况下应该怎么指定审批人
 - [x] 我觉得审批流程和已办事项盘的颜色徽章是没必要的，可以去掉，仅需保证显示待办事项旁的徽章正确即可（不被其他列表查询操作影响）
-- [ ] 数据库权限表的内容还可以完善，目前部门经理竟然无法发起审批，不管是工作台页面快捷操作里的发起审批还是个人中心快捷操作里的发起审批都无法发起
-- [ ] 在前端页面中没有看到有“撤销（REVOKE）”的操作，疑似缺失
+- [x] 数据库权限表的内容还可以完善，目前部门经理竟然无法发起审批，不管是工作台页面快捷操作里的发起审批还是个人中心快捷操作里的发起审批都无法发起
+- [x] 在前端页面中没有看到有“撤销（REVOKE）”的操作，疑似缺失
 - [x] 仔细检查待办事项、已办事项、审批流程三个模块的前端代码逻辑。以待办事项、登录账号为张经理为例，我点击待办事项后只显示一条数据，利用浏览器开发者工具抓包得到此时的网络调用是调用了TodoList.vue而不是后端接口，这是严重错误。已办事项也是类似逻辑，无法显示正确数据。然后当我点击审批流程后再回去查看待办事项、已办事项时发现此时的查询结果才正确。
 - [x] 已办事项的筛选功能有误，目前筛选下拉列表里只有有已通过和已拒绝，应该是已拒绝和已打回冲突了，后端规定的是拒绝后的工单状态时已打回而不是已拒绝，导致筛选不出已打回的工单。
 
@@ -665,4 +666,99 @@
 
 ---
 
-*最后更新: 2026-04-19 (R3前端页面内部权限管控修复：工作台/个人中心快捷操作及统计板块按权限渲染)*
+### 阶段十补充：前端交互与权限修复 ✅
+
+**完成日期**: 2026-04-19
+
+**执行内容**:
+
+#### 1. 已办事项筛选修复
+- ✅ `DoneList.vue` 筛选下拉列表选项从 `value="rejected"` 修正为 `value="returned"`
+- ✅ 与后端状态定义对齐：拒绝后的工单状态为 `RETURNED(已打回)`，而非 `REJECTED`
+
+#### 2. 侧边栏徽章精简
+- ✅ `MainLayout.vue` 移除「已办事项」旁的 `bg-success-500` 绿色徽章
+- ✅ `MainLayout.vue` 移除「审批流程」旁的 `bg-primary-500` 蓝色徽章
+- ✅ 仅保留「待办事项」旁的 `bg-danger-500` 红色徽章，避免视觉干扰
+
+#### 3. 表单设计器权限扩展（部门经理）
+- ✅ 新增权限编码 `form_design`，供表单设计器菜单/路由使用
+- ✅ `MainLayout.vue`：菜单显示条件从 `checkPermission('all')` 改为 `checkPermission('form_design')`
+- ✅ `router/index.js`：`/form-designer` 路由权限守卫改为 `hasPermission(perms, 'form_design')`
+- ✅ `Dashboard.vue`：快捷入口权限判断同步更新
+- ✅ 数据库中 `manager` 角色的 `permissions` 字段追加 `"form_design"`
+
+#### 4. 审批详情页撤销功能
+- ✅ `ApprovalDetail.vue` 新增 `canRevoke` 计算属性：状态为 `processing` 且当前用户为申请人时生效
+- ✅ 审批人操作区（通过/拒绝）中，若当前用户同时为申请人，额外显示「撤销申请」按钮
+- ✅ 非审批人但为申请人时，单独显示「撤销申请」按钮
+- ✅ 新增 `ConfirmDialog.vue` 自定义确认弹窗组件，使用 `Teleport` 挂载到 body，替代原生 `confirm()` 的浏览器默认标题
+- ✅ `handleRevoke` 方法调用 `approvalStore.revokeApproval`，成功后跳转审批列表
+
+#### 5. 最后更新时间修复
+- ✅ `ApprovalDetail.vue`「操作记录-最后更新」数据源从 `approval.history` 修正为 `approvalHistory`
+- ✅ 审批历史通过独立接口 `/approvals/{id}/history` 获取并存储在 `approvalHistory` ref 中
+
+#### 6. CLAUDE.md 规范更新
+- ✅ 新增规则：数据库数据以实际库为准，`database/init.sql` 等初始化脚本仅作历史备份，已废弃且禁止执行
+- ✅ 涉及数据库数据时，必须通过数据库连接查询当前最新数据，不得基于初始化脚本推断数据状态
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| 页面修复 | `oa-frontend/src/views/DoneList.vue` |
+| 页面修复 | `oa-frontend/src/views/ApprovalDetail.vue` |
+| 布局修复 | `oa-frontend/src/layouts/MainLayout.vue` |
+| 路由修复 | `oa-frontend/src/router/index.js` |
+| 页面修复 | `oa-frontend/src/views/Dashboard.vue` |
+| 组件新增 | `oa-frontend/src/components/ConfirmDialog.vue` |
+| 规范更新 | `CLAUDE.md` |
+
+**验证状态**: ✅ 前端编译通过，交互修复完成
+
+---
+
+### 阶段十补充：工单编辑功能重构（方案4）✅
+
+**完成日期**: 2026-04-20
+
+**执行内容**:
+
+#### 1. 后端 `reedit` 接口增强
+- ✅ `ApprovalController.reedit` 方法新增 `@RequestBody(required = false) ApprovalUpdateRequest request` 参数
+- ✅ `ApprovalService` / `ApprovalServiceImpl` 接口签名同步更新
+- ✅ 状态机流转成功后，若 `request != null`，将 title/priority/content/formData/currentApproverId 回写至实体并执行 `updateById`
+- ✅ 状态机动作保持原子性，内容更新由 Service 层在流转后统一处理
+- ✅ **向后兼容**：`request` 为 `null` 时行为与增强前完全一致
+
+#### 2. 前端补充草稿状态编辑入口
+- ✅ 新增 `/approval/edit/:id` 路由，复用 `ApprovalCreate.vue` 组件
+- ✅ `ApprovalCreate.vue` 支持编辑模式：动态标题、类型只读、数据回填、调用 `updateApproval`
+- ✅ `ApprovalDetail.vue`：草稿状态操作区新增「编辑内容」按钮；已通过/已打回状态新增「重新编辑」按钮
+- ✅ `ApprovalManage.vue`：列表操作列为草稿状态增加「编辑」按钮；为已通过/已打回状态增加「重新编辑」按钮
+- ✅ `stores/approval.js`：`updateApproval` 修正请求路径为 `POST /approvals/${id}/update`；`reeditApproval` 支持传入可选参数
+
+#### 3. 测试覆盖
+- ✅ 后端 `ApprovalServiceTest`：更新 `testReeditApproval`、`testReeditByNonApplicant` 调用签名；新增 `testReeditWithContent` 验证 RETURNED → DRAFT 且内容同步更新
+- ✅ `StateMachineConfigTest` 无改动——COLA 状态机规则未变更，现有用例已覆盖
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| Controller 更新 | `oa-backend/controller/ApprovalController.java` |
+| Service 接口 | `oa-backend/service/ApprovalService.java` |
+| Service 实现 | `oa-backend/service/impl/ApprovalServiceImpl.java` |
+| 单元测试 | `oa-backend/src/test/java/com/oasystem/service/ApprovalServiceTest.java` |
+| 路由新增 | `oa-frontend/src/router/index.js` |
+| 页面更新 | `oa-frontend/src/views/ApprovalCreate.vue` |
+| 页面更新 | `oa-frontend/src/views/ApprovalDetail.vue` |
+| 页面更新 | `oa-frontend/src/views/ApprovalManage.vue` |
+| Store 更新 | `oa-frontend/src/stores/approval.js` |
+| 方案文档 | `oa-backend/docs/edit/edit-function-evaluation-plan.md` |
+| 测试文档 | `oa-backend/docs/edit/edit-function-test-plan.md` |
+
+**验证状态**: ✅ 后端编译通过，单元测试通过；前端编译通过，草稿编辑/重新编辑流程联调通过
+
+---
+
+*最后更新: 2026-04-20 (工单编辑功能重构：后端reedit增强、前端编辑入口补充、测试覆盖)*

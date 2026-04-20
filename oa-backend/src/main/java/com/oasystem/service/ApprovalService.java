@@ -76,12 +76,13 @@ public interface ApprovalService {
     Boolean reject(Long id, ApprovalActionCmd cmd, Long operatorId);
 
     /**
-     * 重新编辑（已通过或已打回状态的工单）
+     * 重新编辑（已通过或已打回状态的工单回退为草稿）
      * @param id 工单ID
      * @param operatorId 操作人ID
+     * @param request 可选的内容更新参数（为null时仅做状态回退）
      * @return 是否成功
      */
-    Boolean reedit(Long id, Long operatorId);
+    Boolean reedit(Long id, Long operatorId, ApprovalUpdateRequest request);
 
     /**
      * 撤销申请（审批中状态的工单）

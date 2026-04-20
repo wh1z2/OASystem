@@ -91,8 +91,14 @@
                 <button @click="viewDetail(item.id)" class="text-primary-600 hover:text-primary-700 text-sm font-medium cursor-pointer">
                   查看
                 </button>
+                <button v-if="item.status === 'draft' && canEdit(item)" @click="handleEdit(item.id)" class="text-primary-600 hover:text-primary-700 text-sm font-medium cursor-pointer">
+                  编辑
+                </button>
                 <button v-if="item.status === 'processing' && canExecuteApproval" @click="showApproveModal(item)" class="text-success-600 hover:text-success-700 text-sm font-medium cursor-pointer">
                   审批
+                </button>
+                <button v-if="(item.status === 'approved' || item.status === 'returned') && canReedit(item)" @click="handleReedit(item)" class="text-warning-600 hover:text-warning-700 text-sm font-medium cursor-pointer">
+                  重新编辑
                 </button>
               </div>
             </td>
@@ -193,6 +199,27 @@ function getStatusLabel(status) {
 
 function viewDetail(id) {
   router.push(`/approval/detail/${id}`)
+}
+
+function handleEdit(id) {
+  router.push(`/approval/edit/${id}`)
+}
+
+function canEdit(item) {
+  return item.applicantId === authStore.currentUser?.id || authStore.checkPermission('all')
+}
+
+function canReedit(item) {
+  return item.applicantId === authStore.currentUser?.id || authStore.checkPermission('all')
+}
+
+async function handleReedit(item) {
+  const result = await approvalStore.reeditApproval(item.id)
+  if (result.success) {
+    await approvalStore.fetchApprovals()
+  } else {
+    alert('重新编辑失败：' + result.message)
+  }
 }
 
 function showApproveModal(item) {

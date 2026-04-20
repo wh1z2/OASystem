@@ -129,6 +129,9 @@
               <button @click="handleSubmit" class="btn btn-primary w-full">
                 提交审批
               </button>
+              <button @click="handleEdit" class="btn btn-secondary w-full mt-2">
+                编辑内容
+              </button>
             </div>
           </div>
           <div v-else-if="approval.status === 'draft' && !canSubmit" class="text-center py-4">
@@ -136,6 +139,15 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
               </svg>
             <p class="text-gray-500">草稿待提交</p>
+          </div>
+          <div v-else-if="(approval.status === 'approved' || approval.status === 'returned') && canReedit" class="text-center py-4">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-gray-300 mx-auto mb-2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+            </svg>
+            <p class="text-gray-500 mb-4">{{ approval.status === 'approved' ? '该审批已通过' : '该审批已被打回' }}</p>
+            <button @click="handleReedit" class="btn btn-secondary w-full">
+              重新编辑
+            </button>
           </div>
           <div v-else class="text-center py-4">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-gray-300 mx-auto mb-2">
@@ -223,6 +235,10 @@ const canExecuteApproval = computed(() => hasApprovalExecutePermission(authStore
 const canSubmit = computed(() => authStore.checkPermission('apply'))
 const canRevoke = computed(() =>
   approval.value?.status === 'processing' &&
+  approval.value?.applicantId === authStore.currentUser?.id
+)
+const canReedit = computed(() =>
+  (approval.value?.status === 'approved' || approval.value?.status === 'returned') &&
   approval.value?.applicantId === authStore.currentUser?.id
 )
 
@@ -321,6 +337,25 @@ async function handleSubmit() {
     await approvalStore.fetchApprovalHistory(approval.value.id)
   } else {
     alert('提交失败：' + result.message)
+  }
+}
+
+function handleEdit() {
+  if (!approval.value) return
+  router.push(`/approval/edit/${approval.value.id}`)
+}
+
+async function handleReedit() {
+  if (!approval.value) return
+
+  const result = await approvalStore.reeditApproval(approval.value.id)
+
+  if (result.success) {
+    // 重新编辑成功后刷新页面数据
+    await approvalStore.fetchApprovalById(approval.value.id)
+    await approvalStore.fetchApprovalHistory(approval.value.id)
+  } else {
+    alert('重新编辑失败：' + result.message)
   }
 }
 </script>

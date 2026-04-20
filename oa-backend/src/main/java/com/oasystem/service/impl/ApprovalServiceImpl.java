@@ -432,7 +432,7 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Boolean reedit(Long id, Long operatorId) {
+    public Boolean reedit(Long id, Long operatorId, ApprovalUpdateRequest request) {
         Approval approval = approvalMapper.selectById(id);
         if (approval == null) {
             throw new BusinessException("审批工单不存在");
@@ -447,9 +447,29 @@ public class ApprovalServiceImpl implements ApprovalService {
             throw new BusinessException("当前状态不允许重新编辑");
         }
 
+        // 如果携带了更新参数，同步更新内容（避免先 reedit 再 update 的两次操作）
+        if (request != null) {
+            if (request.getCurrentApproverId() != null) {
+                validateApproverPermission(request.getCurrentApproverId());
+                approval.setCurrentApproverId(request.getCurrentApproverId());
+            }
+            if (request.getTitle() != null) {
+                approval.setTitle(request.getTitle());
+            }
+            if (request.getPriority() != null) {
+                approval.setPriority(request.getPriority());
+            }
+            if (request.getContent() != null) {
+                approval.setContent(request.getContent());
+            }
+            if (request.getFormData() != null) {
+                approval.setFormData(JSON.toJSONString(request.getFormData()));
+            }
+        }
+
         // 更新工单
         approvalMapper.updateById(approval);
-        log.info("重新编辑成功：id={}, operatorId={}", id, operatorId);
+        log.info("重新编辑成功：id={}, operatorId={}, contentUpdated={}", id, operatorId, request != null);
         return true;
     }
 

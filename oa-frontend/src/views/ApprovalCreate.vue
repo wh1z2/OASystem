@@ -6,7 +6,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
         </svg>
       </router-link>
-      <h2 class="text-xl font-semibold text-gray-900">发起审批</h2>
+      <h2 class="text-xl font-semibold text-gray-900">{{ isEditMode ? '编辑审批' : '发起审批' }}</h2>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -17,7 +17,7 @@
           <form @submit.prevent="handleSubmit" class="space-y-6">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">审批类型 <span class="text-danger-500">*</span></label>
-              <select v-model="form.type" class="input" required>
+              <select v-if="!isEditMode" v-model="form.type" class="input" required>
                 <option value="">请选择审批类型</option>
                 <option value="leave">请假申请</option>
                 <option value="expense">报销申请</option>
@@ -25,6 +25,7 @@
                 <option value="overtime">加班申请</option>
                 <option value="travel">出差申请</option>
               </select>
+              <p v-else class="input bg-gray-50 text-gray-600">{{ getTypeLabel(form.type) }}</p>
             </div>
 
             <div>
@@ -86,9 +87,9 @@
 
             <div class="flex gap-4 pt-4">
               <button type="submit" class="btn btn-primary flex-1">
-                提交申请
+                {{ isEditMode ? '保存修改' : '提交申请' }}
               </button>
-              <button type="button" @click="handleSaveDraft" class="btn btn-secondary flex-1">
+              <button v-if="!isEditMode" type="button" @click="handleSaveDraft" class="btn btn-secondary flex-1">
                 保存草稿
               </button>
               <router-link to="/approval" class="btn btn-secondary">
@@ -164,12 +165,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const approvalStore = useApprovalStore()
 const authStore = useAuthStore()
 
@@ -184,6 +186,9 @@ const form = ref({
   destination: ''
 })
 
+const isEditMode = computed(() => !!route.params.id)
+const approvalId = computed(() => route.params.id)
+
 // 类型映射 (前端字符串 -> 后端数值)
 const typeMap = {
   'leave': 1,
@@ -193,6 +198,15 @@ const typeMap = {
   'travel': 5
 }
 
+// 类型反向映射 (后端数值 -> 前端字符串)
+const reverseTypeMap = {
+  1: 'leave',
+  2: 'expense',
+  3: 'purchase',
+  4: 'overtime',
+  5: 'travel'
+}
+
 // 优先级映射 (前端字符串 -> 后端数值)
 const priorityMap = {
   'low': 0,
@@ -200,12 +214,47 @@ const priorityMap = {
   'high': 2
 }
 
+// 优先级反向映射 (后端数值 -> 前端字符串)
+const reversePriorityMap = {
+  0: 'low',
+  1: 'normal',
+  2: 'high'
+}
+
+// 编辑模式下加载已有数据
+onMounted(async () => {
+  if (isEditMode.value) {
+    const result = await approvalStore.fetchApprovalById(approvalId.value)
+    if (result.success) {
+      const data = result.data
+      form.value.type = reverseTypeMap[data.type] || data.type
+      form.value.title = data.title
+      form.value.priority = reversePriorityMap[data.priority] || data.priority
+      form.value.content = data.content
+
+      // 解析 formData 回填扩展字段
+      let fd = data.formData
+      if (typeof fd === 'string' && fd) {
+        try { fd = JSON.parse(fd) } catch (e) { fd = {} }
+      }
+      if (fd) {
+        form.value.startDate = fd.startDate || ''
+        form.value.endDate = fd.endDate || ''
+        form.value.amount = fd.amount || ''
+        form.value.destination = fd.destination || ''
+      }
+    } else {
+      alert('加载审批数据失败：' + result.message)
+      router.push('/approval')
+    }
+  }
+})
+
 async function handleSubmit() {
   try {
     // 构建符合后端 API 格式的请求数据
     const approvalData = {
       title: form.value.title,
-      type: typeMap[form.value.type],
       priority: priorityMap[form.value.priority],
       content: form.value.content,
       formData: {
@@ -216,22 +265,44 @@ async function handleSubmit() {
       }
     }
 
-    const result = await approvalStore.createApproval(approvalData)
-
-    if (result.success) {
-      // 后端返回的是ID数字，不是对象
-      router.push(`/approval/detail/${result.data}`)
+    if (isEditMode.value) {
+      const result = await approvalStore.updateApproval(approvalId.value, approvalData)
+      if (result.success) {
+        router.push(`/approval/detail/${approvalId.value}`)
+      } else {
+        alert('保存失败：' + result.message)
+      }
     } else {
-      // 显示错误提示
-      alert('创建失败：' + result.message)
+      approvalData.type = typeMap[form.value.type]
+      const result = await approvalStore.createApproval(approvalData)
+      if (result.success) {
+        router.push(`/approval/detail/${result.data}`)
+      } else {
+        alert('创建失败：' + result.message)
+      }
     }
   } catch (error) {
-    console.error('创建审批失败:', error)
-    alert('创建失败，请稍后重试')
+    console.error(isEditMode.value ? '保存审批失败:' : '创建审批失败:', error)
+    alert(isEditMode.value ? '保存失败，请稍后重试' : '创建失败，请稍后重试')
   }
 }
 
+function getTypeLabel(type) {
+  const labels = {
+    leave: '请假申请',
+    expense: '报销申请',
+    purchase: '采购申请',
+    overtime: '加班申请',
+    travel: '出差申请'
+  }
+  return labels[type] || type
+}
+
 function handleSaveDraft() {
-  alert('草稿已保存')
+  if (isEditMode.value) {
+    handleSubmit()
+  } else {
+    alert('草稿已保存')
+  }
 }
 </script>

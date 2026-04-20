@@ -32,6 +32,39 @@ architecture.md (架构解释)
 
 ## 关键技术决策
 
+### 工单编辑接口职责分离（方案4）
+
+**决策**: 保持 `update` 与 `reedit` 接口分离，`reedit` 可选携带内容参数
+
+**接口职责**:
+| 接口 | 路径 | 职责 | 允许状态 |
+|------|------|------|----------|
+| `update` | `POST /approvals/{id}/update` | 纯内容编辑（标题、优先级、内容、表单数据、审批人） | **仅 DRAFT** |
+| `reedit` | `POST /approvals/{id}/reedit` | 状态回退 + 可选内容更新 | **APPROVED、RETURNED** |
+
+**设计理由**:
+- `update` = 编辑草稿内容，状态不变，语义清晰
+- `reedit` = 重新打开已结案工单（状态回退），可选地同时修正内容，避免先 reedit 再 update 的两次操作
+- COLA 状态机无需任何改动，保持现有 6 条流转规则，未引入自循环或非法流转
+- 向后兼容：`reedit` 的 `request` 参数为 `null` 时，行为与增强前完全一致
+
+**前端编辑模式复用**:
+- 新增 `/approval/edit/:id` 路由，复用 `ApprovalCreate.vue` 组件
+- 通过 `route.params.id` 判断编辑模式，动态回填数据
+- 编辑模式下审批类型字段只读（静态文本展示），其余字段可修改
+- 草稿状态编辑调用 `update`；已通过/已打回状态调用 `reedit`
+
+**相关文件**:
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/controller/ApprovalController.java` | `reedit` 方法增加可选 body 参数 |
+| `oa-backend/service/impl/ApprovalServiceImpl.java` | 流转成功后回写请求体字段 |
+| `oa-frontend/src/views/ApprovalCreate.vue` | 编辑模式：数据回填、类型只读、调用 update |
+| `oa-frontend/src/views/ApprovalDetail.vue` | 草稿/已通过/已打回状态展示对应编辑按钮 |
+| `oa-frontend/src/views/ApprovalManage.vue` | 列表操作列按状态展示编辑/重新编辑按钮 |
+
+---
+
 ### 状态机设计 (COLA StateMachine)
 
 **决策**: 使用阿里巴巴 COLA 状态机作为工作流引擎
@@ -1004,6 +1037,58 @@ if (currentUser != null && "admin".equals(currentUser.getRoleName())) {
 | `oa-backend/service/impl/ApprovalServiceImpl.java` | `getTodoList()` / `getDashboardStatistics()` 增加角色判断 |
 | `oa-backend/src/test/java/com/oasystem/service/AdminPermissionEnhancementTest.java` | 新增 7 个测试用例覆盖 admin/经理/员工的待办和统计 |
 
+### 前端撤销操作与确认弹窗设计
+
+**问题背景**：
+审批详情页在 `processing` 状态下仅提供「通过/拒绝」按钮，申请人无法撤销已提交的工单。此外，原生 `confirm()` 弹窗会显示浏览器默认标题（如 `localhost:3000 显示`），体验不佳。
+
+**修复方案**：
+1. **撤销权限判断**：新增 `canRevoke` 计算属性，条件为 `status === 'processing' && applicantId === currentUser.id`
+2. **撤销按钮布局**：
+   - 审批人操作区（通过/拒绝）中，若当前用户同时为申请人，额外显示「撤销申请」按钮
+   - 非审批人但为申请人时，单独显示「撤销申请」按钮
+3. **自定义确认弹窗**：新建 `ConfirmDialog.vue`，使用 Vue `Teleport` 挂载到 body，带遮罩层和过渡动画，完全自定义标题和内容
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-frontend/src/views/ApprovalDetail.vue` | 新增撤销按钮、确认弹窗调用 |
+| `oa-frontend/src/components/ConfirmDialog.vue` | 自定义确认弹窗组件 |
+
+### 侧边栏徽章精简设计
+
+**问题背景**：
+侧边栏「已办事项」和「审批流程」旁的计数徽章信息量低且视觉冗余，用户反馈无需持续关注。
+
+**设计决策**：
+- 仅保留「待办事项」旁的红色徽章（`bg-danger-500`），因其具有强提醒属性
+- 移除「已办事项」绿色徽章和「审批流程」蓝色徽章
+- 计数数据仍由 `doneTotal` / `myApprovalCount` 维护，仅不再在 UI 上展示
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-frontend/src/layouts/MainLayout.vue` | 精简徽章展示逻辑 |
+
+### 数据库数据查询规范
+
+**决策**：涉及数据库数据时，必须以实际数据库中的最新数据为准，禁止参考或执行数据库初始化脚本。
+
+**理由**：
+- `database/init.sql` 仅作历史备份，其中的角色权限、用户数据等可能已与实际运行环境不一致
+- 基于初始化脚本推断当前数据状态会导致权限判断错误（如 manager 角色缺少 `form_design` 或 `apply` 权限）
+- 生产环境和开发环境的数据由用户手动维护，AI 不应擅自假设数据内容
+
+**规范**：
+- 查询数据库权限、角色、用户等动态数据时，必须通过数据库连接执行实时查询
+- 禁止将 `init.sql` 中的数据作为决策依据
+- 禁止运行 `init.sql` 或任何数据库初始化脚本
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `CLAUDE.md` | 新增数据库数据查询规则 |
+
 ---
 
-*最后更新: 2026-04-19 (Admin 权限增强：数据查询维度全局视野，待办列表/工作台统计支持 admin 查看全系统待办)*
+*最后更新: 2026-04-20 (工单编辑功能重构：update/reedit职责分离、前端编辑模式复用)*

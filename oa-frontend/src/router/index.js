@@ -50,6 +50,12 @@ const routes = [
         component: () => import('@/views/ApprovalDetail.vue')
       },
       {
+        path: 'approval/edit/:id',
+        name: 'ApprovalEdit',
+        meta: { permissionCheck: (perms) => hasPermission(perms, 'apply') },
+        component: () => import('@/views/ApprovalCreate.vue')
+      },
+      {
         path: 'form-designer',
         name: 'FormDesigner',
         meta: { permissionCheck: (perms) => hasPermission(perms, 'form_design') },
