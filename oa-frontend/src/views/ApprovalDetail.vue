@@ -212,6 +212,15 @@
       @confirm="handleRevokeConfirm"
       @cancel="showRevokeConfirm = false"
     />
+
+    <!-- 轻量提示弹窗 -->
+    <ConfirmDialog
+      :visible="showAlert"
+      :title="alertTitle"
+      :message="alertMessage"
+      :show-cancel="false"
+      @confirm="handleAlertConfirm"
+    />
   </div>
 </template>
 
@@ -231,6 +240,21 @@ const authStore = useAuthStore()
 const comment = ref('')
 const loading = ref(false)
 const showRevokeConfirm = ref(false)
+
+// 轻量提示弹窗状态
+const showAlert = ref(false)
+const alertTitle = ref('提示')
+const alertMessage = ref('')
+
+function showAlertDialog(title, message) {
+  alertTitle.value = title
+  alertMessage.value = message
+  showAlert.value = true
+}
+
+function handleAlertConfirm() {
+  showAlert.value = false
+}
 
 const approval = computed(() => approvalStore.currentApproval)
 const approvalHistory = computed(() => approvalStore.approvalHistory)
@@ -325,7 +349,7 @@ async function handleRevokeConfirm() {
   if (result.success) {
     router.push('/approval')
   } else {
-    alert('撤销失败：' + result.message)
+    showAlertDialog('撤销失败', '撤销失败：' + result.message)
   }
 }
 
@@ -339,7 +363,7 @@ async function handleSubmit() {
     await approvalStore.fetchApprovalById(approval.value.id)
     await approvalStore.fetchApprovalHistory(approval.value.id)
   } else {
-    alert('提交失败：' + result.message)
+    showAlertDialog('提交失败', '提交失败：' + result.message)
   }
 }
 
@@ -358,7 +382,7 @@ async function handleReedit() {
     await approvalStore.fetchApprovalById(approval.value.id)
     await approvalStore.fetchApprovalHistory(approval.value.id)
   } else {
-    alert('重新编辑失败：' + result.message)
+    showAlertDialog('重新编辑失败', '重新编辑失败：' + result.message)
   }
 }
 </script>

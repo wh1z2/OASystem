@@ -91,7 +91,7 @@ public class ApprovalController {
      * 审批通过
      */
     @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAnyAuthority('approval', 'all')")
+    @PreAuthorize("hasAnyAuthority('approval', 'approval:execute', 'all')")
     public Result<Boolean> approve(@PathVariable Long id, @RequestBody ApprovalActionCmd cmd) {
         Long operatorId = getCurrentUserId();
         Boolean success = approvalService.approve(id, cmd, operatorId);
@@ -102,7 +102,7 @@ public class ApprovalController {
      * 审批拒绝
      */
     @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAnyAuthority('approval', 'all')")
+    @PreAuthorize("hasAnyAuthority('approval', 'approval:execute', 'all')")
     public Result<Boolean> reject(@PathVariable Long id, @RequestBody ApprovalActionCmd cmd) {
         Long operatorId = getCurrentUserId();
         Boolean success = approvalService.reject(id, cmd, operatorId);
