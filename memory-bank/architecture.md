@@ -141,6 +141,8 @@ architecture.md (架构解释)
 | ApprovalEvent | TINYINT | 0=SUBMIT, 1=APPROVE, 2=REJECT, 3=REEDIT, 4=REVOKE |
 | ApprovalType | TINYINT | 1=LEAVE, 2=EXPENSE, 3=PURCHASE, 4=OVERTIME, 5=TRAVEL |
 | Priority | TINYINT | 0=LOW, 1=NORMAL, 2=HIGH |
+| ApproverStrategyType | TINYINT | 1=DEPT_ROLE(按部门角色), 3=FIXED_USER(固定人员) |
+| ApproverType | TINYINT | 1=SPECIFIC_USER(指定用户), 2=SPECIFIC_ROLE(指定角色) |
 
 ### 审批人逻辑
 
@@ -202,6 +204,45 @@ Level 4: 无权限 (DENIED)
 - 业务合理性：普通员工(employee)不应被指定为审批人
 
 **异常提示**: "指定的审批人无审批权限，请选择管理员或部门经理作为审批人"
+
+### 默认审批人自动解析 (DefaultApproverResolver)
+
+**决策**: 当创建/提交工单时未手动指定审批人，系统自动根据预设规则解析默认审批人
+
+**解析优先级**:
+```
+1. 手动指定优先: 传入 currentApproverId → 校验权限 → 直接使用
+2. 规则匹配: 未传入 → 查询 oa_approver_rule → 按 priority 排序匹配
+3. 兜底策略: 无匹配规则 → 查找申请人所在部门的 manager 角色用户
+4. 失败阻断: 兜底也失败 → 抛出 BusinessException，流程阻断
+```
+
+**v1.0 实现策略**:
+| 策略 | 编码 | 说明 |
+|------|------|------|
+| DEPT_ROLE | 1 | 按部门+角色匹配，如技术部请假找部门经理 |
+| FIXED_USER | 3 | 固定人员，如所有报销找财务张经理 |
+
+**设计理由**:
+- 零配置提交：普通员工无需关心具体审批人是谁
+- 手动优先：保留管理员/特殊场景手动指定能力
+- 实时生效：规则变更即时生效，无需重启
+- 安全兜底：解析失败明确提示，禁止静默跳过
+- 防止自审：解析出的审批人与申请人相同时自动跳过
+
+**集成点**:
+- `ApprovalServiceImpl.create()`: 若 currentApproverId 为空则调用解析引擎
+- `ApprovalServiceImpl.submit()`: 若提交时仍无审批人则再次解析
+
+**相关文件**:
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/resolver/DefaultApproverResolver.java` | 核心解析引擎 |
+| `oa-backend/entity/ApproverRule.java` | 审批规则实体 |
+| `oa-backend/service/ApproverRuleService.java` | 规则管理接口 |
+| `oa-backend/controller/ApproverRuleController.java` | 规则管理 REST API |
+| `oa-frontend/src/views/ApproverRuleManage.vue` | 规则配置页面 |
+| `database/approver-rule-migration.sql` | 数据库迁移脚本 |
 
 ### 数据语言规范
 

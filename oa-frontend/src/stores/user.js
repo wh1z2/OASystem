@@ -84,6 +84,28 @@ export const useUserStore = defineStore('user', () => {
     return false
   }
 
+  // 从后端获取用户列表
+  async function fetchUsers() {
+    try {
+      const result = await apiClient.get('/users', { params: { current: 1, size: 1000 } })
+      if (result && result.records) {
+        users.value = result.records.map(u => ({
+          id: u.id,
+          username: u.username,
+          name: u.name,
+          email: u.email,
+          phone: u.phone,
+          avatar: u.avatar,
+          role: u.roleName,
+          department: u.department,
+          status: u.status === 1 ? 'active' : 'inactive'
+        }))
+      }
+    } catch (error) {
+      console.warn('获取用户列表失败，使用本地数据:', error.message)
+    }
+  }
+
   // 更新个人信息
   async function updateProfile(profileData) {
     try {
@@ -126,6 +148,7 @@ export const useUserStore = defineStore('user', () => {
     addRole,
     updateRole,
     deleteRole,
+    fetchUsers,
     updateProfile,
     changePassword
   }

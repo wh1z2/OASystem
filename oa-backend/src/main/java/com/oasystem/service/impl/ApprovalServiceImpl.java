@@ -19,6 +19,7 @@ import com.oasystem.mapper.ApprovalHistoryMapper;
 import com.oasystem.mapper.ApprovalMapper;
 import com.oasystem.mapper.DepartmentMapper;
 import com.oasystem.mapper.UserMapper;
+import com.oasystem.resolver.DefaultApproverResolver;
 import com.oasystem.service.ApprovalService;
 import com.oasystem.statemachine.ApprovalContext;
 import com.oasystem.statemachine.ApprovalPermissionResult;
@@ -50,6 +51,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     private final DepartmentMapper departmentMapper;
     private final StateMachine<ApprovalStatus, ApprovalEvent, ApprovalContext> stateMachine;
     private final ApprovalStateMachineHelper stateMachineHelper;
+    private final DefaultApproverResolver defaultApproverResolver;
 
     /**
      * 审批执行权限
@@ -101,9 +103,6 @@ public class ApprovalServiceImpl implements ApprovalService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long create(ApprovalCreateRequest request, Long applicantId) {
-        // 校验指定审批人权限
-        validateApproverPermission(request.getCurrentApproverId());
-
         Approval approval = new Approval();
         approval.setTitle(request.getTitle());
         approval.setType(request.getType());
@@ -115,7 +114,22 @@ public class ApprovalServiceImpl implements ApprovalService {
         if (request.getFormData() != null) {
             approval.setFormData(JSON.toJSONString(request.getFormData()));
         }
-        approval.setCurrentApproverId(request.getCurrentApproverId());
+
+        // 自动解析默认审批人：手动指定优先，未指定则尝试自动解析（创建草稿时允许失败，提交时再强制解析）
+        if (request.getCurrentApproverId() != null) {
+            validateApproverPermission(request.getCurrentApproverId());
+            approval.setCurrentApproverId(request.getCurrentApproverId());
+        } else {
+            com.oasystem.dto.ResolverResult result = defaultApproverResolver.resolve(applicantId, request.getType());
+            if (result.isSuccess()) {
+                approval.setCurrentApproverId(result.getApproverId());
+                log.info("自动分配审批人：工单标题={}, 规则={}, 审批人ID={}",
+                        approval.getTitle(), result.getRuleName(), result.getApproverId());
+            } else {
+                log.warn("创建工单时自动解析审批人失败，草稿将无审批人：title={}, message={}",
+                        approval.getTitle(), result.getMessage());
+            }
+        }
 
         approvalMapper.insert(approval);
         log.info("创建审批工单成功：id={}, title={}", approval.getId(), approval.getTitle());
@@ -135,7 +149,18 @@ public class ApprovalServiceImpl implements ApprovalService {
             throw new BusinessException("只有草稿状态的工单可以编辑");
         }
 
-        // 如果更新了审批人，校验新审批人权限
+        // 如果审批人为空（如撤销后），自动解析默认审批人，保证草稿详情页也能正常展示
+        if (approval.getCurrentApproverId() == null) {
+            com.oasystem.dto.ResolverResult result = defaultApproverResolver.resolve(
+                    approval.getApplicantId(), approval.getType());
+            if (result.isSuccess()) {
+                approval.setCurrentApproverId(result.getApproverId());
+                log.info("编辑保存时自动分配审批人：工单id={}, 审批人ID={}",
+                        approval.getId(), result.getApproverId());
+            }
+        }
+
+        // 如果前端指定了审批人，校验权限并覆盖
         if (request.getCurrentApproverId() != null) {
             validateApproverPermission(request.getCurrentApproverId());
             approval.setCurrentApproverId(request.getCurrentApproverId());
@@ -297,6 +322,16 @@ public class ApprovalServiceImpl implements ApprovalService {
         // 验证操作人是申请人
         if (!approval.getApplicantId().equals(operatorId)) {
             throw new BusinessException("只有申请人可以提交工单");
+        }
+
+        // 提交时若仍无审批人，再次自动解析
+        if (approval.getCurrentApproverId() == null) {
+            com.oasystem.dto.ResolverResult result = defaultApproverResolver.resolve(
+                    approval.getApplicantId(), approval.getType());
+            if (!result.isSuccess()) {
+                throw new BusinessException("提交失败：" + result.getMessage());
+            }
+            approval.setCurrentApproverId(result.getApproverId());
         }
 
         ApprovalStatus currentStatus = ApprovalStatus.fromCode(approval.getStatus());

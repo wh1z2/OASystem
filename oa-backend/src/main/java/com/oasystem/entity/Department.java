@@ -18,6 +18,11 @@ public class Department {
     private Long id;
 
     /**
+     * 上级部门ID
+     */
+    private Long parentId;
+
+    /**
      * 部门名称
      */
     private String name;

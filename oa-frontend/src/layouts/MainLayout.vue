@@ -73,6 +73,12 @@
           </svg>
           <span>角色权限</span>
         </router-link>
+        <router-link v-if="showApproverRuleMenu" to="/approver-rules" class="sidebar-item" :class="{ active: $route.path === '/approver-rules' }">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+          </svg>
+          <span>审批规则配置</span>
+        </router-link>
       </nav>
     </aside>
 
@@ -150,9 +156,10 @@ const showApprovalMenu = computed(() => hasApprovalPermission(authStore.permissi
 const showFormDesignerMenu = computed(() => authStore.checkPermission('form_design'))
 const showUserMenuItem = computed(() => authStore.checkAnyPermission(['user_view', 'user_manage']))
 const showRoleMenu = computed(() => authStore.checkPermission('role_manage') || authStore.checkPermission('all'))
+const showApproverRuleMenu = computed(() => authStore.checkPermission('role_manage') || authStore.checkPermission('all'))
 
 const showApprovalSection = computed(() => showApprovalMenu.value || showFormDesignerMenu.value)
-const showSystemSection = computed(() => showUserMenuItem.value || showRoleMenu.value)
+const showSystemSection = computed(() => showUserMenuItem.value || showRoleMenu.value || showApproverRuleMenu.value)
 
 const pageTitle = computed(() => {
   const titles = {
@@ -164,6 +171,7 @@ const pageTitle = computed(() => {
     '/form-designer': '表单设计器',
     '/users': '用户管理',
     '/roles': '角色权限',
+    '/approver-rules': '审批规则配置',
     '/profile': '个人中心'
   }
   return titles[route.path] || 'OA审批系统'

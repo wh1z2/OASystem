@@ -103,6 +103,14 @@
       <div class="space-y-6">
         <div class="card">
           <h3 class="text-lg font-semibold text-gray-900 mb-4">审批流程</h3>
+          <div class="bg-primary-50 rounded-lg p-3 mb-4">
+            <p class="text-sm text-primary-700 flex items-start gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 flex-shrink-0 mt-0.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+              </svg>
+              审批人将由系统根据预设规则自动分配，您无需手动选择。
+            </p>
+          </div>
           <div class="space-y-4">
             <div class="flex items-start gap-3">
               <div class="w-8 h-8 bg-success-50 rounded-full flex items-center justify-center flex-shrink-0">
@@ -120,7 +128,13 @@
               </div>
               <div>
                 <p class="font-medium text-gray-900">部门审批</p>
-                <p class="text-sm text-gray-500">部门经理审核</p>
+                <p class="text-sm text-gray-500">
+                  <span v-if="resolverLoading">正在解析审批人...</span>
+                  <span v-else-if="!form.type">请选择审批类型后查看</span>
+                  <span v-else-if="resolverResult?.success">由 {{ previewApproverName }} 审核</span>
+                  <span v-else-if="resolverResult">{{ resolverResult.message }}</span>
+                  <span v-else>部门经理审核</span>
+                </p>
               </div>
             </div>
             <div class="w-px h-6 bg-gray-200 ml-4"></div>
@@ -165,15 +179,27 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
 import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user'
+import { approverRuleApi } from '@/api/approverRule'
 
 const router = useRouter()
 const route = useRoute()
 const approvalStore = useApprovalStore()
 const authStore = useAuthStore()
+const userStore = useUserStore()
+
+const resolverResult = ref(null)
+const resolverLoading = ref(false)
+
+const previewApproverName = computed(() => {
+  if (!resolverResult.value?.success) return ''
+  const approver = userStore.getUserById(resolverResult.value.approverId)
+  return approver?.name || `用户#${resolverResult.value.approverId}`
+})
 
 const form = ref({
   type: '',
@@ -221,8 +247,35 @@ const reversePriorityMap = {
   2: 'high'
 }
 
+const fetchPreview = async () => {
+  const currentUserId = authStore.currentUser?.id
+  const type = typeMap[form.value.type]
+  if (!currentUserId || !type) {
+    resolverResult.value = null
+    return
+  }
+  resolverLoading.value = true
+  try {
+    const result = await approverRuleApi.preview({
+      applicantId: currentUserId,
+      type: type
+    })
+    resolverResult.value = result
+  } catch (error) {
+    console.error('获取审批人预览失败:', error)
+    resolverResult.value = null
+  } finally {
+    resolverLoading.value = false
+  }
+}
+
+watch(() => form.value.type, () => {
+  fetchPreview()
+})
+
 // 编辑模式下加载已有数据
 onMounted(async () => {
+  await userStore.fetchUsers()
   if (isEditMode.value) {
     const result = await approvalStore.fetchApprovalById(approvalId.value)
     if (result.success) {
@@ -243,6 +296,8 @@ onMounted(async () => {
         form.value.amount = fd.amount || ''
         form.value.destination = fd.destination || ''
       }
+
+      await fetchPreview()
     } else {
       alert('加载审批数据失败：' + result.message)
       router.push('/approval')

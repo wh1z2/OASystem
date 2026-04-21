@@ -74,6 +74,12 @@ const routes = [
         component: () => import('@/views/RoleManage.vue')
       },
       {
+        path: 'approver-rules',
+        name: 'ApproverRuleManage',
+        meta: { permissionCheck: (perms) => hasPermission(perms, 'role_manage') || hasPermission(perms, 'all') },
+        component: () => import('@/views/ApproverRuleManage.vue')
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue')

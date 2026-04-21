@@ -168,7 +168,10 @@
             <div>
               <p class="font-medium text-gray-900">{{ approval.currentApprover }}</p>
               <p class="text-sm text-gray-500">
-                {{ approval.status === 'processing' ? '待审批' : '已处理' }}
+                {{
+                  approval.status === 'processing' ? '待审批' :
+                    approval.status === 'draft' ? '待提交' : '已处理'
+                }}
               </p>
             </div>
           </div>

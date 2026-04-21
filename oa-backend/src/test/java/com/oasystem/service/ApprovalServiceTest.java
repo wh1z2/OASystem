@@ -100,9 +100,11 @@ class ApprovalServiceTest {
      */
     @Test
     void testSubmitApproval() {
-        // 创建草稿工单
+        // 创建草稿工单并指定审批人
         Long id = createTestApproval("测试提交", USER_ID_LISI);
         Approval approval = approvalMapper.selectById(id);
+        approval.setCurrentApproverId(USER_ID_MANAGER);
+        approvalMapper.updateById(approval);
         assertEquals(ApprovalStatus.DRAFT.getCode(), approval.getStatus());
 
         // 提交申请
@@ -120,6 +122,9 @@ class ApprovalServiceTest {
     @Test
     void testSubmitByNonApplicant() {
         Long id = createTestApproval("测试提交权限", USER_ID_LISI);
+        Approval approval = approvalMapper.selectById(id);
+        approval.setCurrentApproverId(USER_ID_MANAGER);
+        approvalMapper.updateById(approval);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> {
             approvalService.submit(id, USER_ID_ZHANGSAN);

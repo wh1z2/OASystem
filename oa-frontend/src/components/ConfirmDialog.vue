@@ -7,7 +7,7 @@
           <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ title }}</h3>
           <p class="text-gray-600 mb-6">{{ message }}</p>
           <div class="flex justify-end gap-3">
-            <button @click="handleCancel" class="btn btn-secondary">取消</button>
+            <button v-if="showCancel" @click="handleCancel" class="btn btn-secondary">取消</button>
             <button @click="handleConfirm" class="btn btn-primary">确定</button>
           </div>
         </div>
@@ -20,7 +20,8 @@
 const props = defineProps({
   visible: Boolean,
   title: { type: String, default: '提示' },
-  message: { type: String, default: '' }
+  message: { type: String, default: '' },
+  showCancel: { type: Boolean, default: true }
 })
 
 const emit = defineEmits(['confirm', 'cancel'])
