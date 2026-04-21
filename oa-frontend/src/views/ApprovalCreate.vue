@@ -100,6 +100,15 @@
         </div>
       </div>
 
+      <!-- 轻量提示弹窗 -->
+      <ConfirmDialog
+        :visible="showAlert"
+        :title="alertTitle"
+        :message="alertMessage"
+        :show-cancel="false"
+        @confirm="handleAlertConfirm"
+      />
+
       <div class="space-y-6">
         <div class="card">
           <h3 class="text-lg font-semibold text-gray-900 mb-4">审批流程</h3>
@@ -185,6 +194,7 @@ import { useApprovalStore } from '@/stores/approval'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { approverRuleApi } from '@/api/approverRule'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -194,6 +204,27 @@ const userStore = useUserStore()
 
 const resolverResult = ref(null)
 const resolverLoading = ref(false)
+
+// 轻量提示弹窗状态
+const showAlert = ref(false)
+const alertTitle = ref('提示')
+const alertMessage = ref('')
+const alertOnConfirm = ref(null)
+
+function showAlertDialog(title, message, onConfirm = null) {
+  alertTitle.value = title
+  alertMessage.value = message
+  alertOnConfirm.value = onConfirm
+  showAlert.value = true
+}
+
+function handleAlertConfirm() {
+  showAlert.value = false
+  if (alertOnConfirm.value) {
+    alertOnConfirm.value()
+    alertOnConfirm.value = null
+  }
+}
 
 const previewApproverName = computed(() => {
   if (!resolverResult.value?.success) return ''
@@ -299,8 +330,9 @@ onMounted(async () => {
 
       await fetchPreview()
     } else {
-      alert('加载审批数据失败：' + result.message)
-      router.push('/approval')
+      showAlertDialog('加载失败', '加载审批数据失败：' + result.message, () => {
+        router.push('/approval')
+      })
     }
   }
 })
@@ -325,20 +357,27 @@ async function handleSubmit() {
       if (result.success) {
         router.push(`/approval/detail/${approvalId.value}`)
       } else {
-        alert('保存失败：' + result.message)
+        showAlertDialog('保存失败', '保存失败：' + result.message)
       }
     } else {
       approvalData.type = typeMap[form.value.type]
       const result = await approvalStore.createApproval(approvalData)
       if (result.success) {
-        router.push(`/approval/detail/${result.data}`)
+        // 创建成功后自动提交审批
+        const newId = result.data
+        const submitResult = await approvalStore.submitApproval(newId)
+        if (submitResult.success) {
+          router.push(`/approval/detail/${newId}`)
+        } else {
+          showAlertDialog('提交失败', '提交审批失败：' + submitResult.message)
+        }
       } else {
-        alert('创建失败：' + result.message)
+        showAlertDialog('创建失败', '创建失败：' + result.message)
       }
     }
   } catch (error) {
     console.error(isEditMode.value ? '保存审批失败:' : '创建审批失败:', error)
-    alert(isEditMode.value ? '保存失败，请稍后重试' : '创建失败，请稍后重试')
+    showAlertDialog('操作失败', isEditMode.value ? '保存失败，请稍后重试' : '创建失败，请稍后重试')
   }
 }
 
@@ -353,11 +392,35 @@ function getTypeLabel(type) {
   return labels[type] || type
 }
 
-function handleSaveDraft() {
+async function handleSaveDraft() {
   if (isEditMode.value) {
-    handleSubmit()
-  } else {
-    alert('草稿已保存')
+    // 编辑模式下保存草稿即更新内容
+    await handleSubmit()
+    return
+  }
+
+  try {
+    const approvalData = {
+      title: form.value.title || '无标题草稿',
+      priority: priorityMap[form.value.priority],
+      content: form.value.content,
+      type: typeMap[form.value.type],
+      formData: {
+        startDate: form.value.startDate,
+        endDate: form.value.endDate,
+        amount: form.value.amount,
+        destination: form.value.destination
+      }
+    }
+    const result = await approvalStore.createApproval(approvalData)
+    if (result.success) {
+      router.push('/approval')
+    } else {
+      showAlertDialog('保存失败', '保存草稿失败：' + result.message)
+    }
+  } catch (error) {
+    console.error('保存草稿失败:', error)
+    showAlertDialog('操作失败', '保存草稿失败，请稍后重试')
   }
 }
 </script>
