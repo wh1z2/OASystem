@@ -56,6 +56,29 @@
             <h4 class="font-medium text-gray-900 mb-3">申请内容</h4>
             <p class="text-gray-600 leading-relaxed">{{ approval.content }}</p>
           </div>
+
+          <!-- 动态表单数据 -->
+          <div v-if="hasFormData" class="border-t border-gray-200 pt-6 mt-6">
+            <h4 class="font-medium text-gray-900 mb-3">申请详情</h4>
+            <div class="grid grid-cols-2 gap-4">
+              <div v-if="parsedFormData.startDate">
+                <p class="text-sm text-gray-500">开始日期</p>
+                <p class="font-medium text-gray-900">{{ parsedFormData.startDate }}</p>
+              </div>
+              <div v-if="parsedFormData.endDate">
+                <p class="text-sm text-gray-500">结束日期</p>
+                <p class="font-medium text-gray-900">{{ parsedFormData.endDate }}</p>
+              </div>
+              <div v-if="parsedFormData.amount !== undefined && parsedFormData.amount !== ''">
+                <p class="text-sm text-gray-500">报销金额</p>
+                <p class="font-medium text-gray-900">¥ {{ parsedFormData.amount }}</p>
+              </div>
+              <div v-if="parsedFormData.destination">
+                <p class="text-sm text-gray-500">出差地点</p>
+                <p class="font-medium text-gray-900">{{ parsedFormData.destination }}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="card">
@@ -258,6 +281,24 @@ function handleAlertConfirm() {
 
 const approval = computed(() => approvalStore.currentApproval)
 const approvalHistory = computed(() => approvalStore.approvalHistory)
+
+const parsedFormData = computed(() => {
+  const fd = approval.value?.formData
+  if (!fd) return {}
+  if (typeof fd === 'string') {
+    try {
+      return JSON.parse(fd)
+    } catch (e) {
+      return {}
+    }
+  }
+  return fd
+})
+
+const hasFormData = computed(() => {
+  const fd = parsedFormData.value
+  return fd.startDate || fd.endDate || fd.amount !== undefined && fd.amount !== '' || fd.destination
+})
 const canExecuteApproval = computed(() => hasApprovalExecutePermission(authStore.permissions))
 const canSubmit = computed(() => authStore.checkPermission('apply'))
 const canRevoke = computed(() =>
