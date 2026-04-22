@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div v-if="canAccessApproval" class="card">
+      <div v-if="canAccessApproval" class="card hover:shadow-md transition-shadow cursor-pointer" @click="goToTodo">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-primary-600">
@@ -14,8 +14,8 @@
           </div>
         </div>
       </div>
-      
-      <div v-if="canAccessApproval" class="card">
+
+      <div v-if="canAccessApproval" class="card hover:shadow-md transition-shadow cursor-pointer" @click="goToApproved">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-success-50 rounded-xl flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-success-500">
@@ -28,8 +28,8 @@
           </div>
         </div>
       </div>
-      
-      <div v-if="canAccessApproval" class="card">
+
+      <div v-if="canAccessApproval" class="card hover:shadow-md transition-shadow cursor-pointer" @click="goToRejected">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-danger-50 rounded-xl flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-danger-500">
@@ -42,8 +42,8 @@
           </div>
         </div>
       </div>
-      
-      <div class="card">
+
+      <div class="card hover:shadow-md transition-shadow cursor-pointer" @click="goToMyApplications">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-warning-50 rounded-xl flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-warning-500">
@@ -51,7 +51,7 @@
             </svg>
           </div>
           <div>
-            <p class="text-sm text-gray-500">本月申请</p>
+            <p class="text-sm text-gray-500">我的申请</p>
             <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
           </div>
         </div>
@@ -231,5 +231,21 @@ function getPriorityLabel(priority) {
 
 function goToDetail(id) {
   router.push(`/approval/detail/${id}`)
+}
+
+function goToTodo() {
+  router.push('/todo')
+}
+
+function goToApproved() {
+  router.push('/approved')
+}
+
+function goToRejected() {
+  router.push('/rejected')
+}
+
+function goToMyApplications() {
+  router.push('/my-applications')
 }
 </script>

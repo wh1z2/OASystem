@@ -498,7 +498,7 @@
 - [x] 需要补充一条规则：admin可以审批所有工单，无论审批人是不是admin，也不论是否跨部门，admin账号就是可以拥有所有操作的权限，所以admin的待办事项里面应该显示所有“审批中”的工单。
 - [x] 部门经理应该添加表单设计器的权限
 - [x] 当前重新编辑工单的设计是：可以对已通过或已打回的工单重新编辑，状态变回草稿，但是我觉得不太合理，已通过的工单不应可以再被编辑，所以设计应该变为可以对草稿或已打回的工单重新编辑
-- [ ] 当前的待审批人的指定逻辑我觉得是缺失的，虽然接口测试里可以在请求体里面设置待审批人，但是在前端页面中给发起审批人指定待审批人显然是不合理的，所以需要做到一个配置逻辑，默认情况下应该怎么指定审批人
+- [x] 当前的待审批人的指定逻辑我觉得是缺失的，虽然接口测试里可以在请求体里面设置待审批人，但是在前端页面中给发起审批人指定待审批人显然是不合理的，所以需要做到一个配置逻辑，默认情况下应该怎么指定审批人
 - [x] 我觉得审批流程和已办事项盘的颜色徽章是没必要的，可以去掉，仅需保证显示待办事项旁的徽章正确即可（不被其他列表查询操作影响）
 - [x] 数据库权限表的内容还可以完善，目前部门经理竟然无法发起审批，不管是工作台页面快捷操作里的发起审批还是个人中心快捷操作里的发起审批都无法发起
 - [x] 在前端页面中没有看到有“撤销（REVOKE）”的操作，疑似缺失
@@ -761,4 +761,137 @@
 
 ---
 
-*最后更新: 2026-04-20 (工单编辑功能重构：后端reedit增强、前端编辑入口补充、测试覆盖)*
+---
+
+### 阶段十补充：默认审批人规则解析引擎 ✅
+
+**完成日期**: 2026-04-21
+
+**执行内容**:
+
+#### 1. 后端规则解析引擎
+- ✅ 新建 `DefaultApproverResolver`：实现 4 级解析优先级（手动指定 → 规则匹配 → 部门经理兜底 → 失败阻断）
+- ✅ 支持两种策略：`DEPT_ROLE`(按部门+角色匹配) 和 `FIXED_USER`(固定人员)
+- ✅ 防止自审：解析出的审批人与申请人相同时自动跳过
+- ✅ 新建 `ApproverRule` 实体、Service、Controller，提供规则 CRUD 和预览接口
+- ✅ `ApprovalServiceImpl.create()` / `submit()` 集成解析引擎，零配置提交
+- ✅ 新增枚举：`ApproverStrategyType`、`ApproverType`
+
+#### 2. 前端规则管理对接
+- ✅ 新建 `ApproverRuleManage.vue`：规则配置管理页面（增删改查）
+- ✅ `ApprovalCreate.vue`：审批流程预览区显示解析出的审批人名称
+- ✅ 新建 `api/approverRule.js`：规则 API 封装
+- ✅ `stores/user.js`：新增 `getUserById` 方法，支持按 ID 查询用户名称
+
+#### 3. 测试覆盖
+- ✅ `DefaultApproverResolverTest`（263 行）：覆盖 DEPT_ROLE / FIXED_USER 策略、自审跳过、兜底策略、失败场景
+- ✅ `ApprovalServiceRegressionTest`（278 行）：创建/提交时审批人解析的回归测试
+- ✅ `ApproverRuleServiceTest`（253 行）：规则 CRUD 和匹配的单元测试
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| 解析引擎 | `oa-backend/resolver/DefaultApproverResolver.java` |
+| 实体 | `oa-backend/entity/ApproverRule.java`, `oa-backend/entity/Department.java` |
+| 枚举 | `oa-backend/enums/ApproverStrategyType.java`, `oa-backend/enums/ApproverType.java` |
+| Service | `oa-backend/service/ApproverRuleService.java`, `oa-backend/service/impl/ApproverRuleServiceImpl.java` |
+| Controller | `oa-backend/controller/ApproverRuleController.java` |
+| DTO 新增 | `oa-backend/dto/ApproverRuleCreateRequest.java`, `dto/ApproverRuleUpdateRequest.java`, `dto/ApproverRuleQuery.java`, `dto/ApproverRuleResponse.java`, `dto/ResolverPreviewRequest.java`, `dto/ResolverResult.java` |
+| Mapper | `oa-backend/mapper/ApproverRuleMapper.java` |
+| Service 更新 | `oa-backend/service/impl/ApprovalServiceImpl.java` |
+| 单元测试 | `oa-backend/src/test/java/com/oasystem/resolver/DefaultApproverResolverTest.java` |
+| 单元测试 | `oa-backend/src/test/java/com/oasystem/service/ApprovalServiceRegressionTest.java` |
+| 单元测试 | `oa-backend/src/test/java/com/oasystem/service/ApproverRuleServiceTest.java` |
+| 前端页面 | `oa-frontend/src/views/ApproverRuleManage.vue` |
+| 前端页面 | `oa-frontend/src/views/ApprovalCreate.vue` |
+| 前端 API | `oa-frontend/src/api/approverRule.js` |
+| Store 更新 | `oa-frontend/src/stores/user.js` |
+| 数据库 | `database/approver-rule-migration.sql` |
+| 设计文档 | `oa-backend/docs/approver-rule/default-approver-config-design.md` |
+| 测试文档 | `oa-backend/docs/approver-rule/审批规则解析引擎测试计划.md` |
+
+**验证状态**: ✅ 后端编译通过，单元测试通过；前端编译通过，审批人自动解析联调通过
+
+---
+
+### 阶段十补充：前端交互与提示优化 ✅
+
+**完成日期**: 2026-04-21
+
+**执行内容**:
+
+#### 1. ApprovalCreate.vue 提示弹窗统一
+- ✅ 引入 `ConfirmDialog.vue` 组件替代所有原生 `alert()` 调用
+- ✅ 编辑模式加载失败时使用弹窗提示，确认后自动跳转回列表页
+- ✅ 保存失败、创建失败均使用弹窗提示，用户体验一致
+
+#### 2. 创建审批流程优化
+- ✅ 创建成功后自动调用 `submitApproval` 提交审批，一步到位
+- ✅ 提交失败时使用弹窗提示错误信息，用户可继续操作
+- ✅ 避免用户创建后手动前往列表或详情页进行二次提交
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| 页面修复 | `oa-frontend/src/views/ApprovalCreate.vue` |
+| 组件复用 | `oa-frontend/src/components/ConfirmDialog.vue` |
+
+**验证状态**: ✅ 前端编译通过，交互流程顺畅
+
+---
+
+### 阶段十补充：测试数据补充与权限校验完善 ✅
+
+**完成日期**: 2026-04-21
+
+**执行内容**:
+
+#### 1. 测试数据补充
+- ✅ `database/data-supplement.sql`：补充 7 个测试用户
+  - 财务部、人事部、系统管理部部门经理各 1 名
+  - 上述部门员工各 1 名，技术部新员工 1 名
+- ✅ 补充 3 条部门级审批规则：各部门请假/加班/出差由本部门经理审批
+
+#### 2. 审批详情页提示优化
+- ✅ `ApprovalDetail.vue`：补充 `ConfirmDialog` 和 `showAlertDialog`
+- ✅ 替换剩余的原生 `alert` 调用：撤销失败、提交失败、重新编辑失败
+- ✅ 当前审批人状态文案细化：`processing` → 待审批，`draft` → 待提交，其他 → 已处理
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| 数据补充 | `database/data-supplement.sql` |
+| 页面修复 | `oa-frontend/src/views/ApprovalDetail.vue` |
+
+**验证状态**: ✅ 测试数据导入成功，前端提示统一为弹窗组件
+
+---
+
+### 阶段十补充：详情页动态表单数据展示修复 ✅
+
+**完成日期**: 2026-04-21
+
+**执行内容**:
+
+#### 1. 问题修复
+- **问题描述**：请假申请的请假日期、报销申请的报销金额、出差申请的出差地点等动态字段在提交后，审批人无法在详情页查看，仅能看到固定的"申请内容"
+- **根因**：`ApprovalCreate.vue` 将动态字段存储在 `formData` 中，但 `ApprovalDetail.vue` 仅渲染 `content` 字段，未读取 `formData`
+
+#### 2. 修复方案
+- ✅ 新增 `parsedFormData` 计算属性：兼容后端返回的 JSON 字符串和对象两种格式
+- ✅ 新增 `hasFormData` 计算属性：判断是否存在任一动态字段，控制展示区域显隐
+- ✅ 新增"申请详情"展示区域：在"申请内容"下方，按审批类型展示动态字段
+  - 请假：`startDate`（开始日期）、`endDate`（结束日期）
+  - 报销：`amount`（报销金额，带 ¥ 符号）
+  - 出差：`destination`（出差地点）
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| 页面修复 | `oa-frontend/src/views/ApprovalDetail.vue` |
+
+**验证状态**: ✅ 前端编译通过，动态表单数据在详情页正常展示
+
+---
+
+*最后更新: 2026-04-21 (默认审批人规则解析引擎、前端交互优化、动态表单数据展示修复)*

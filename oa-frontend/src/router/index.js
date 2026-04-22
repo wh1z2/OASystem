@@ -80,6 +80,23 @@ const routes = [
         component: () => import('@/views/ApproverRuleManage.vue')
       },
       {
+        path: 'approved',
+        name: 'ApprovedList',
+        meta: { permissionCheck: (perms) => hasApprovalPermission(perms) },
+        component: () => import('@/views/ApprovedList.vue')
+      },
+      {
+        path: 'rejected',
+        name: 'RejectedList',
+        meta: { permissionCheck: (perms) => hasApprovalPermission(perms) },
+        component: () => import('@/views/RejectedList.vue')
+      },
+      {
+        path: 'my-applications',
+        name: 'MyApplicationList',
+        component: () => import('@/views/MyApplicationList.vue')
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue')

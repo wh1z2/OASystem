@@ -1130,6 +1130,42 @@ if (currentUser != null && "admin".equals(currentUser.getRoleName())) {
 |------|------|
 | `CLAUDE.md` | 新增数据库数据查询规则 |
 
+### 动态表单数据展示修复
+
+**问题背景**：
+审批工单支持多种类型（请假、报销、出差等），每种类型有特定的扩展字段（请假日期、报销金额、出差地点）。创建页将扩展字段存储在 `formData` JSON 字段中，但详情页仅渲染固定的 `content` 文本，导致审批人无法查看这些关键信息。
+
+**根因分析**：
+- 前端创建页 (`ApprovalCreate.vue`) 将动态字段收集到 `formData` 对象中提交给后端
+- 后端将 `formData` 以 JSON 格式持久化到 `oa_approval.form_data` 字段
+- 前端详情页 (`ApprovalDetail.vue`) 未读取 `formData`，仅展示 `content` 字段
+
+**修复方案**：
+1. **数据解析兼容**：新增 `parsedFormData` 计算属性，兼容后端返回的 JSON 字符串和对象两种格式（FastJSON2 在某些场景下可能返回字符串）
+2. **条件渲染控制**：新增 `hasFormData` 计算属性，检测是否存在任一动态字段，避免空区域渲染
+3. **字段映射展示**：在"申请内容"下方新增"申请详情"区域，按类型展示动态字段
+   - 请假：`startDate` / `endDate`
+   - 报销：`amount`（带货币符号）
+   - 出差：`destination`
+
+**前后端数据流**：
+```
+ApprovalCreate.vue → formData: { startDate, endDate, amount, destination }
+                   → POST /approvals (Map<String, Object>)
+Backend → JSON.toJSONString() → oa_approval.form_data (MySQL JSON type)
+                   → GET /approvals/{id}
+ApprovalDetail.vue → parsedFormData (兼容 String/Object)
+                   → 条件渲染动态字段
+```
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-frontend/src/views/ApprovalCreate.vue` | 收集并提交动态表单数据 |
+| `oa-frontend/src/views/ApprovalDetail.vue` | 解析并展示动态表单数据 |
+| `oa-backend/dto/ApprovalCreateRequest.java` | `formData` 字段类型 `Map<String, Object>` |
+| `oa-backend/entity/Approval.java` | `formData` 字段映射 `oa_approval.form_data` |
+
 ---
 
-*最后更新: 2026-04-20 (工单编辑功能重构：update/reedit职责分离、前端编辑模式复用)*
+*最后更新: 2026-04-21 (默认审批人规则解析引擎、前端交互优化、动态表单数据展示修复)*

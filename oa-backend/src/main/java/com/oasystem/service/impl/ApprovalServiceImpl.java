@@ -286,18 +286,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         }
 
         // R2修复：数据权限过滤
-        if (!"admin".equals(currentUser.getRoleName())) {
-            if ("manager".equals(currentUser.getRoleName())) {
-                wrapper.and(w -> {
-                    w.apply("applicant_id IN (SELECT id FROM sys_user WHERE dept_id = {0})", currentUser.getDeptId())
-                     .or()
-                     .eq(Approval::getCurrentApproverId, currentUserId);
-                });
-            } else {
-                // 普通员工只能查看自己的工单
-                wrapper.eq(Approval::getApplicantId, currentUserId);
-            }
-        }
+        applyDataPermission(wrapper, currentUser, currentUserId);
 
         wrapper.orderByDesc(Approval::getCreateTime);
 
@@ -309,6 +298,34 @@ public class ApprovalServiceImpl implements ApprovalService {
                 .collect(Collectors.toList());
 
         return PageResult.of(responses, total, query.getPageNum(), query.getPageSize());
+    }
+
+    /**
+     * 应用数据权限过滤到查询条件
+     *
+     * @param wrapper       查询包装器
+     * @param currentUser   当前用户（含角色信息）
+     * @param currentUserId 当前用户ID
+     */
+    private void applyDataPermission(LambdaQueryWrapper<Approval> wrapper, User currentUser, Long currentUserId) {
+        if (currentUser == null || currentUserId == null) {
+            return;
+        }
+
+        if ("admin".equals(currentUser.getRoleName())) {
+            return;
+        }
+
+        if ("manager".equals(currentUser.getRoleName())) {
+            wrapper.and(w -> {
+                w.apply("applicant_id IN (SELECT id FROM sys_user WHERE dept_id = {0})", currentUser.getDeptId())
+                 .or()
+                 .eq(Approval::getCurrentApproverId, currentUserId);
+            });
+        } else {
+            // 普通员工只能查看自己的工单
+            wrapper.eq(Approval::getApplicantId, currentUserId);
+        }
     }
 
     @Override
@@ -695,12 +712,18 @@ public class ApprovalServiceImpl implements ApprovalService {
         }
         response.setPendingCount(pendingCount != null ? pendingCount : 0L);
 
-        // 已通过数量（当前用户作为审批人，审批通过的去重工单数）
-        Long approvedCount = approvalHistoryMapper.countApprovedByApproverId(userId);
+        // 已通过数量 - 统计当前用户有权限查看的状态为已通过的工单数（与列表页查询逻辑一致）
+        LambdaQueryWrapper<Approval> approvedWrapper = Wrappers.lambdaQuery();
+        approvedWrapper.eq(Approval::getStatus, ApprovalStatus.APPROVED.getCode());
+        applyDataPermission(approvedWrapper, currentUser, userId);
+        Long approvedCount = approvalMapper.selectCount(approvedWrapper);
         response.setApprovedCount(approvedCount != null ? approvedCount : 0L);
 
-        // 已拒绝数量（当前用户作为审批人，审批拒绝的去重工单数）
-        Long rejectedCount = approvalHistoryMapper.countRejectedByApproverId(userId);
+        // 已拒绝数量 - 统计当前用户有权限查看的状态为已打回的工单数（与列表页查询逻辑一致）
+        LambdaQueryWrapper<Approval> rejectedWrapper = Wrappers.lambdaQuery();
+        rejectedWrapper.eq(Approval::getStatus, ApprovalStatus.RETURNED.getCode());
+        applyDataPermission(rejectedWrapper, currentUser, userId);
+        Long rejectedCount = approvalMapper.selectCount(rejectedWrapper);
         response.setRejectedCount(rejectedCount != null ? rejectedCount : 0L);
 
         // 我的申请总数
