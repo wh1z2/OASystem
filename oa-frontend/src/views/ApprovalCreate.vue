@@ -56,22 +56,12 @@
               <textarea v-model="form.content" class="input h-32 resize-none" placeholder="请详细描述申请内容..." required></textarea>
             </div>
 
-            <div v-if="form.type === 'leave'">
-              <label class="block text-sm font-medium text-gray-700 mb-1">请假日期</label>
-              <div class="grid grid-cols-2 gap-4">
-                <input v-model="form.startDate" type="date" class="input" />
-                <input v-model="form.endDate" type="date" class="input" />
-              </div>
+            <div v-if="templateLoading" class="py-4 text-center text-gray-500">
+              加载表单模板...
             </div>
-
-            <div v-if="form.type === 'expense'">
-              <label class="block text-sm font-medium text-gray-700 mb-1">报销金额</label>
-              <input v-model="form.amount" type="number" class="input" placeholder="请输入金额" />
-            </div>
-
-            <div v-if="form.type === 'travel'">
-              <label class="block text-sm font-medium text-gray-700 mb-1">出差地点</label>
-              <input v-model="form.destination" type="text" class="input" placeholder="请输入出差目的地" />
+            <div v-else-if="templateFields.length > 0">
+              <label class="block text-sm font-medium text-gray-700 mb-3">申请详情</label>
+              <DynamicForm :fields="templateFields" v-model="dynamicFormData" />
             </div>
 
             <div>
@@ -194,7 +184,9 @@ import { useApprovalStore } from '@/stores/approval'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { approverRuleApi } from '@/api/approverRule'
+import { formTemplateApi } from '@/api/formTemplate'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import DynamicForm from '@/components/DynamicForm.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -204,6 +196,9 @@ const userStore = useUserStore()
 
 const resolverResult = ref(null)
 const resolverLoading = ref(false)
+const templateFields = ref([])
+const templateLoading = ref(false)
+const dynamicFormData = ref({})
 
 // 轻量提示弹窗状态
 const showAlert = ref(false)
@@ -278,6 +273,49 @@ const reversePriorityMap = {
   2: 'high'
 }
 
+// 审批类型到表单模板编码映射
+const typeToTemplateCode = {
+  'leave': 'LEAVE_FORM',
+  'expense': 'EXPENSE_FORM',
+  'purchase': 'PURCHASE_FORM',
+  'overtime': 'OVERTIME_FORM',
+  'travel': 'TRAVEL_FORM'
+}
+
+async function fetchTemplate() {
+  const code = typeToTemplateCode[form.value.type]
+  if (!code) {
+    templateFields.value = []
+    dynamicFormData.value = {}
+    return
+  }
+  templateLoading.value = true
+  try {
+    const res = await formTemplateApi.getByCode(code)
+    if (res.data?.code === 200 && res.data.data) {
+      const template = res.data.data
+      let fields = []
+      if (template.fieldsConfig) {
+        try {
+          fields = typeof template.fieldsConfig === 'string'
+            ? JSON.parse(template.fieldsConfig)
+            : template.fieldsConfig
+        } catch (e) {
+          console.error('解析表单模板字段失败:', e)
+        }
+      }
+      templateFields.value = fields
+    } else {
+      templateFields.value = []
+    }
+  } catch (error) {
+    console.error('加载表单模板失败:', error)
+    templateFields.value = []
+  } finally {
+    templateLoading.value = false
+  }
+}
+
 const fetchPreview = async () => {
   const currentUserId = authStore.currentUser?.id
   const type = typeMap[form.value.type]
@@ -302,6 +340,7 @@ const fetchPreview = async () => {
 
 watch(() => form.value.type, () => {
   fetchPreview()
+  fetchTemplate()
 })
 
 // 编辑模式下加载已有数据
@@ -316,19 +355,17 @@ onMounted(async () => {
       form.value.priority = reversePriorityMap[data.priority] || data.priority
       form.value.content = data.content
 
-      // 解析 formData 回填扩展字段
+      // 解析 formData 回填动态字段
       let fd = data.formData
       if (typeof fd === 'string' && fd) {
         try { fd = JSON.parse(fd) } catch (e) { fd = {} }
       }
-      if (fd) {
-        form.value.startDate = fd.startDate || ''
-        form.value.endDate = fd.endDate || ''
-        form.value.amount = fd.amount || ''
-        form.value.destination = fd.destination || ''
+      if (fd && typeof fd === 'object') {
+        dynamicFormData.value = { ...fd }
       }
 
       await fetchPreview()
+      await fetchTemplate()
     } else {
       showAlertDialog('加载失败', '加载审批数据失败：' + result.message, () => {
         router.push('/approval')
@@ -344,12 +381,7 @@ async function handleSubmit() {
       title: form.value.title,
       priority: priorityMap[form.value.priority],
       content: form.value.content,
-      formData: {
-        startDate: form.value.startDate,
-        endDate: form.value.endDate,
-        amount: form.value.amount,
-        destination: form.value.destination
-      }
+      formData: { ...dynamicFormData.value }
     }
 
     if (isEditMode.value) {
@@ -405,12 +437,7 @@ async function handleSaveDraft() {
       priority: priorityMap[form.value.priority],
       content: form.value.content,
       type: typeMap[form.value.type],
-      formData: {
-        startDate: form.value.startDate,
-        endDate: form.value.endDate,
-        amount: form.value.amount,
-        destination: form.value.destination
-      }
+      formData: { ...dynamicFormData.value }
     }
     const result = await approvalStore.createApproval(approvalData)
     if (result.success) {
