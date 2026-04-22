@@ -1166,6 +1166,148 @@ ApprovalDetail.vue → parsedFormData (兼容 String/Object)
 | `oa-backend/dto/ApprovalCreateRequest.java` | `formData` 字段类型 `Map<String, Object>` |
 | `oa-backend/entity/Approval.java` | `formData` 字段映射 `oa_approval.form_data` |
 
+### 工作台统计块点击交互与列表页路由设计
+
+**问题背景**：
+工作台首页的四个统计卡片（待办事项、已通过、已拒绝、我的申请）原本仅为静态展示，用户无法快速查看对应分类的详细列表。需增强交互性，使统计数字可直接跳转至对应列表。
+
+**设计决策**：
+1. **统计卡片可点击**：四个统计卡片增加 `@click` 事件，点击后通过 Vue Router 跳转至对应页面
+2. **新增三个专用列表页**：
+   - `ApprovedList.vue`（`/approved`）：仅展示 `status = 2 (APPROVED)` 的工单，绿色主题
+   - `RejectedList.vue`（`/rejected`）：仅展示 `status = 3 (RETURNED)` 的工单，红色主题
+   - `MyApplicationList.vue`（`/my-applications`）：展示当前用户作为 applicant 的全部工单
+3. **权限隔离**：`/approved` 和 `/rejected` 需 `hasApprovalPermission`（即 `approval:execute` 或 `all`），`/my-applications` 对全部认证用户开放
+4. **列表页复用现有能力**：三个页面均使用 `approvalStore.fetchApprovals({ status: X })` 获取数据，复用 `ApprovalService.list()` 的分页、排序和数据权限过滤能力
+
+**路由映射**：
+| 统计卡片 | 路由 | 页面 | 权限要求 |
+|---------|------|------|---------|
+| 待办事项 | `/todo` | `TodoList.vue` | `approval:execute` / `all` |
+| 已通过 | `/approved` | `ApprovedList.vue` | `approval:execute` / `all` |
+| 已拒绝 | `/rejected` | `RejectedList.vue` | `approval:execute` / `all` |
+| 我的申请 | `/my-applications` | `MyApplicationList.vue` | 已认证即可 |
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-frontend/src/views/Dashboard.vue` | 统计卡片增加点击跳转 |
+| `oa-frontend/src/views/ApprovedList.vue` | 已通过工单列表 |
+| `oa-frontend/src/views/RejectedList.vue` | 已拒绝（已打回）工单列表 |
+| `oa-frontend/src/views/MyApplicationList.vue` | 我的申请列表 |
+| `oa-frontend/src/router/index.js` | 新增三条路由，配置权限守卫 |
+
+### 统计口径与数据权限一致性设计
+
+**问题背景**：
+工作台统计接口 `GET /approvals/statistics` 返回的 `approvedCount`/`rejectedCount` 与前端列表页 `GET /approvals?status=2` / `GET /approvals?status=3` 返回的实际数据量不一致。具体表现为 manager 角色工作台显示 5 条已通过，列表页只显示 3 条。
+
+**根因分析**：
+| 维度 | 工作台统计（旧逻辑） | 列表页查询 |
+|------|-------------------|-----------|
+| 数据源 | `oa_approval_history`（审批历史） | `oa_approval`（工单表） |
+| 统计口径 | "我审批过的"去重工单数 | "当前状态 = APPROVED/RETURNED" 的工单数 |
+| 权限过滤 | 无（仅按 approver_id 过滤） | 有（R2 数据权限：部门+指派） |
+| 时效性 | 包含历史上审批过但当前状态可能已变更的工单 | 仅包含当前状态仍为满足条件的工单 |
+
+**修复方案**：
+1. **提取公共数据权限方法**：将 `list()` 中的权限过滤逻辑抽取为 `applyDataPermission(LambdaQueryWrapper, User, Long)` 私有方法
+2. **统一统计口径**：工作台统计改为从 `oa_approval` 表按状态查询，并调用 `applyDataPermission()` 应用与列表页**完全相同**的数据权限规则
+3. **消除数据源差异**：统计和列表均基于 `oa_approval` 表的当前状态，不再查询 `oa_approval_history`
+
+**数据权限规则（复用 R2）**：
+```java
+private void applyDataPermission(LambdaQueryWrapper<Approval> wrapper, User currentUser, Long currentUserId) {
+    if ("admin".equals(currentUser.getRoleName())) return; // admin 不受限制
+    if ("manager".equals(currentUser.getRoleName())) {
+        wrapper.and(w -> {
+            w.apply("applicant_id IN (SELECT id FROM sys_user WHERE dept_id = {0})", currentUser.getDeptId())
+             .or()
+             .eq(Approval::getCurrentApproverId, currentUserId);
+        });
+    } else {
+        wrapper.eq(Approval::getApplicantId, currentUserId); // 普通员工仅看自己
+    }
+}
+```
+
+**关键代码位置**：
+| 文件 | 方法 | 说明 |
+|------|------|------|
+| `oa-backend/service/impl/ApprovalServiceImpl.java` | `list()` | 列表查询，应用数据权限 |
+| `oa-backend/service/impl/ApprovalServiceImpl.java` | `getDashboardStatistics()` | 统计接口，approvedCount/rejectedCount 复用 `applyDataPermission()` |
+| `oa-backend/service/impl/ApprovalServiceImpl.java` | `applyDataPermission()` | 公共数据权限过滤方法 |
+
+**设计原则**：
+- **同源同权**：同一角色在同一维度下的统计和列表查询必须使用相同的数据源和权限规则
+- **单一真实来源**：`oa_approval` 表的当前状态是工单状态的唯一真实来源，统计不应基于历史记录
+- **公共方法复用**：数据权限逻辑抽取为独立方法，避免统计和列表两处维护导致不一致
+
 ---
 
-*最后更新: 2026-04-21 (默认审批人规则解析引擎、前端交互优化、动态表单数据展示修复)*
+### 表单模板管理架构
+
+**问题背景**：
+系统需要支持自定义审批表单，不同审批类型（请假、报销、采购等）拥有不同的字段集合。初始方案在 `ApprovalCreate.vue` 中硬编码了各类型对应的扩展字段（请假日期、报销金额、出差地点等），新增字段类型需要修改前端代码，扩展性差。
+
+**设计决策**：
+1. **表单模板化**：将表单字段配置抽取到 `oa_form_template` 表，通过 JSON 存储字段定义数组
+2. **编码映射**：审批类型与表单模板通过编码一对一映射（如 `leave` → `LEAVE_FORM`），创建审批时自动加载对应模板
+3. **统一渲染**：使用 `DynamicForm.vue` 通用组件，根据模板字段配置动态渲染输入控件，同时支持编辑模式和只读模式
+
+**字段配置格式**：
+```json
+[
+  {
+    "id": "field_001",
+    "type": "text",
+    "label": "请假事由",
+    "name": "reason",
+    "placeholder": "请输入请假原因",
+    "required": true
+  },
+  {
+    "id": "field_002",
+    "type": "select",
+    "label": "请假类型",
+    "name": "type",
+    "options": [
+      {"value": "sick", "label": "病假"},
+      {"value": "personal", "label": "事假"}
+    ],
+    "required": true
+  }
+]
+```
+
+**数据流**：
+```
+FormDesigner.vue → fieldsConfig (数组) → POST /form-templates
+Backend → JSON.toJSONString() → oa_form_template.fields_config (MySQL JSON)
+
+ApprovalCreate.vue → type selection → GET /form-templates/code/{code}
+  → fieldsConfig → DynamicForm (编辑模式)
+  → formData (对象) → POST /approvals (Map<String, Object>)
+
+ApprovalDetail.vue → GET /form-templates/code/{code}
+  → fieldsConfig + formData → DynamicForm (readonly 模式)
+```
+
+**权限设计**：
+- 表单模板查询：`isAuthenticated()`（所有登录用户可见，用于创建/查看审批时加载模板）
+- 表单模板管理：`form_design` 或 `all`（仅管理员和部门经理可创建/编辑/删除）
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/controller/FormTemplateController.java` | 表单模板 REST API |
+| `oa-backend/service/impl/FormTemplateServiceImpl.java` | 业务逻辑，fieldsConfig JSON 转换 |
+| `oa-backend/mapper/FormTemplateMapper.java` | 数据访问，含按 code 查询 |
+| `oa-frontend/src/components/DynamicForm.vue` | 通用动态表单渲染组件 |
+| `oa-frontend/src/views/FormDesigner.vue` | 表单设计器（列表+设计双模式） |
+| `oa-frontend/src/views/ApprovalCreate.vue` | 按类型自动加载模板并渲染 |
+| `oa-frontend/src/views/ApprovalDetail.vue` | 按模板只读展示申请详情 |
+
+---
+
+*最后更新: 2026-04-22 (阶段八：表单设计器实现完成)*

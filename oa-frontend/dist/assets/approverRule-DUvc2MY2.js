@@ -1,1 +1,0 @@
-import{K as r}from"./index-C0vg2qbo.js";const a={getList:e=>r.get("/approver-rules",{params:e}),getById:e=>r.get(`/approver-rules/${e}`),create:e=>r.post("/approver-rules",e),update:(e,p)=>r.put(`/approver-rules/${e}`,p),delete:e=>r.delete(`/approver-rules/${e}`),preview:e=>r.post("/approver-rules/preview",e)};export{a};

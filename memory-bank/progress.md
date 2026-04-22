@@ -894,4 +894,152 @@
 
 ---
 
-*最后更新: 2026-04-21 (默认审批人规则解析引擎、前端交互优化、动态表单数据展示修复)*
+---
+
+### 阶段十补充：工作台统计块交互增强 ✅
+
+**完成日期**: 2026-04-22
+
+**执行内容**:
+
+#### 1. 统计块可点击跳转
+- ✅ `Dashboard.vue` 顶部统计卡片（待办事项、已通过、已拒绝、我的申请）增加点击交互
+- ✅ 点击后跳转至对应列表页：待办→`/todo`、已通过→`/approved`、已拒绝→`/rejected`、我的申请→`/my-applications`
+- ✅ 卡片增加 `cursor-pointer` 和 `hover:shadow-md` 样式，提升可点击感知
+
+#### 2. 新增列表页面
+- ✅ `ApprovedList.vue`（`/approved`）：展示状态为 `APPROVED(2)` 的工单列表，绿色主题标识
+- ✅ `RejectedList.vue`（`/rejected`）：展示状态为 `RETURNED(3)` 的工单列表，红色主题标识
+- ✅ `MyApplicationList.vue`（`/my-applications`）：展示当前用户发起的全部申请列表
+- ✅ 三个页面均支持返回工作台、点击跳转详情、空状态/错误状态展示
+
+#### 3. 路由与菜单适配
+- ✅ `router/index.js` 新增 `/approved`、`/rejected`、`/my-applications` 路由定义
+- ✅ 路由守卫按权限控制：`/approved`、`/rejected` 需 `approval:execute` 权限
+- ✅ `MainLayout.vue` 侧边栏个人中心图标路由修正为 `/profile`
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| 页面新增 | `oa-frontend/src/views/ApprovedList.vue` |
+| 页面新增 | `oa-frontend/src/views/RejectedList.vue` |
+| 页面新增 | `oa-frontend/src/views/MyApplicationList.vue` |
+| 页面更新 | `oa-frontend/src/views/Dashboard.vue` |
+| 路由更新 | `oa-frontend/src/router/index.js` |
+| 布局更新 | `oa-frontend/src/layouts/MainLayout.vue` |
+
+**验证状态**: ✅ 前端编译通过，统计块点击跳转正常，列表页数据展示正确
+
+---
+
+### 阶段十补充：工作台统计与列表页数据一致性修复 ✅
+
+**完成日期**: 2026-04-22
+
+**执行内容**:
+
+#### 1. 问题排查
+- **现象**：张经理账号工作台显示「已通过 5 条」「已拒绝 6 条」，点击进入列表页后分别只显示 3 条和 1 条
+- **根因**：工作台统计与列表页查询的**数据源和权限逻辑不一致**
+  - 工作台统计：查询 `oa_approval_history` 表，统计"我审批过的"工单数，不区分当前状态，也不应用数据权限
+  - 列表页查询：查询 `oa_approval` 表，按状态过滤，并应用数据权限（manager 只能看本部门 + 指派给自己的工单）
+
+#### 2. 修复方案
+- ✅ 提取公共方法 `applyDataPermission()`：将 `list()` 方法中的数据权限过滤逻辑提取为独立私有方法
+- ✅ 统一统计口径：`getDashboardStatistics()` 中的 `approvedCount`/`rejectedCount` 改为从 `oa_approval` 表按状态查询，并应用与列表页**完全相同**的数据权限规则
+- ✅ admin 角色不受数据权限限制，manager/employee 角色统一按数据权限过滤
+
+#### 3. 数据权限规则（复用现有 R2 规则）
+| 角色 | 统计范围 |
+|------|---------|
+| admin | 全部工单 |
+| manager | 本部门工单 + 指派给自己审批的工单 |
+| employee | 仅自己发起的工单 |
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| Service 修复 | `oa-backend/service/impl/ApprovalServiceImpl.java` |
+
+**验证状态**: ✅ 后端编译通过，工作台统计数字与 ApprovedList/RejectedList 列表页实际数量保持一致
+
+---
+
+### 阶段八：表单设计器实现 ✅
+
+**完成日期**: 2026-04-22
+
+**执行内容**:
+
+#### 1. 后端表单模板管理接口
+- ✅ 新建 `FormTemplateMapper`：继承 BaseMapper，支持按 code 查询
+- ✅ 新建 `FormTemplateService` / `FormTemplateServiceImpl`：表单模板 CRUD，fieldsConfig 自动 JSON 序列化/反序列化
+- ✅ 新建 `FormTemplateController`（`/form-templates`）：7 个端点
+  - `GET /form-templates/all` - 查询全部启用模板
+  - `GET /form-templates` - 分页查询
+  - `GET /form-templates/{id}` - 详情
+  - `GET /form-templates/code/{code}` - 按编码查询（用于审批创建页自动匹配）
+  - `POST /form-templates` - 创建（需 `form_design` / `all` 权限）
+  - `POST /form-templates/{id}/update` - 更新
+  - `POST /form-templates/{id}/delete` - 删除
+- ✅ 新建 DTO：`FormTemplateCreateRequest`、`FormTemplateUpdateRequest`
+
+#### 2. 前端表单设计器对接
+- ✅ 重构 `FormDesigner.vue`：支持列表模式与设计模式切换
+  - 列表模式：展示所有模板，支持新建/编辑/删除
+  - 设计模式：左侧组件库、中间画布、右侧表单设置
+  - 保存时调用后端 API（创建或更新）
+  - 编辑时加载已有模板的 `fieldsConfig` 并回填
+- ✅ 新建 `api/formTemplate.js`：封装表单模板全部 API
+
+#### 3. 动态表单渲染组件
+- ✅ 新建 `DynamicForm.vue`：通用动态表单渲染组件
+  - 支持字段类型：text、textarea、number、email、date、select、radio、checkbox
+  - 支持 `readonly` 只读模式（用于详情页展示）
+  - 支持选项解析（对象数组 / 字符串）
+  - 通过 `v-model` 双向绑定表单数据
+
+#### 4. 集成表单到审批流程
+- ✅ 修改 `ApprovalCreate.vue`：
+  - 选择审批类型后，自动调用 `formTemplateApi.getByCode` 加载对应表单模板
+  - 使用 `DynamicForm` 渲染模板字段，替代原有的固定扩展字段（请假日期、报销金额等）
+  - 动态字段数据统一存入 `formData`，与后端 `oa_approval.form_data` 兼容
+  - 编辑模式自动回填 `dynamicFormData`
+- ✅ 修改 `ApprovalDetail.vue`：
+  - 加载对应表单模板，使用 `DynamicForm readonly` 展示申请详情
+  - 替代原有的硬编码字段展示，支持所有模板字段类型
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| Mapper 新增 | `oa-backend/mapper/FormTemplateMapper.java` |
+| Service 新增 | `oa-backend/service/FormTemplateService.java`, `oa-backend/service/impl/FormTemplateServiceImpl.java` |
+| Controller 新增 | `oa-backend/controller/FormTemplateController.java` |
+| DTO 新增 | `oa-backend/dto/FormTemplateCreateRequest.java`, `oa-backend/dto/FormTemplateUpdateRequest.java` |
+| 前端 API 新增 | `oa-frontend/src/api/formTemplate.js` |
+| 前端组件新增 | `oa-frontend/src/components/DynamicForm.vue` |
+| 页面重构 | `oa-frontend/src/views/FormDesigner.vue` |
+| 页面更新 | `oa-frontend/src/views/ApprovalCreate.vue` |
+| 页面更新 | `oa-frontend/src/views/ApprovalDetail.vue` |
+
+**验证状态**: ✅ 后端编译通过，前端编译通过，等待用户验证测试
+
+---
+
+## 待完成阶段
+
+- [x] 阶段一：开发环境验证 ✅
+- [x] 阶段二：数据库设计与初始化 ✅
+- [x] 阶段三：后端基础框架搭建 ✅
+- [x] 阶段四：用户认证模块实现 ✅
+- [x] 阶段五：COLA状态机集成 ✅
+- [x] 阶段六：审批流程核心功能 ✅
+- [x] 阶段七：前端接口对接 ✅
+- [x] 阶段八：表单设计器实现 ✅
+- [x] 阶段九：用户与角色管理（后端已完成，前端已对接权限控制） ✅
+- [ ] 阶段十：系统测试与优化
+- [ ] 阶段十一：部署上线
+
+---
+
+*最后更新: 2026-04-22 (阶段八：表单设计器实现完成)*

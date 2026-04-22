@@ -60,24 +60,7 @@
           <!-- 动态表单数据 -->
           <div v-if="hasFormData" class="border-t border-gray-200 pt-6 mt-6">
             <h4 class="font-medium text-gray-900 mb-3">申请详情</h4>
-            <div class="grid grid-cols-2 gap-4">
-              <div v-if="parsedFormData.startDate">
-                <p class="text-sm text-gray-500">开始日期</p>
-                <p class="font-medium text-gray-900">{{ parsedFormData.startDate }}</p>
-              </div>
-              <div v-if="parsedFormData.endDate">
-                <p class="text-sm text-gray-500">结束日期</p>
-                <p class="font-medium text-gray-900">{{ parsedFormData.endDate }}</p>
-              </div>
-              <div v-if="parsedFormData.amount !== undefined && parsedFormData.amount !== ''">
-                <p class="text-sm text-gray-500">报销金额</p>
-                <p class="font-medium text-gray-900">¥ {{ parsedFormData.amount }}</p>
-              </div>
-              <div v-if="parsedFormData.destination">
-                <p class="text-sm text-gray-500">出差地点</p>
-                <p class="font-medium text-gray-900">{{ parsedFormData.destination }}</p>
-              </div>
-            </div>
+            <DynamicForm :fields="templateFields" v-model="parsedFormData" :readonly="true" />
           </div>
         </div>
 
@@ -253,7 +236,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
 import { useAuthStore } from '@/stores/auth'
 import { hasApprovalExecutePermission } from '@/utils/permission'
+import { formTemplateApi } from '@/api/formTemplate'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import DynamicForm from '@/components/DynamicForm.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -263,6 +248,16 @@ const authStore = useAuthStore()
 const comment = ref('')
 const loading = ref(false)
 const showRevokeConfirm = ref(false)
+const templateFields = ref([])
+
+// 审批类型到表单模板编码映射
+const typeToTemplateCode = {
+  'leave': 'LEAVE_FORM',
+  'expense': 'EXPENSE_FORM',
+  'purchase': 'PURCHASE_FORM',
+  'overtime': 'OVERTIME_FORM',
+  'travel': 'TRAVEL_FORM'
+}
 
 // 轻量提示弹窗状态
 const showAlert = ref(false)
@@ -297,7 +292,7 @@ const parsedFormData = computed(() => {
 
 const hasFormData = computed(() => {
   const fd = parsedFormData.value
-  return fd.startDate || fd.endDate || fd.amount !== undefined && fd.amount !== '' || fd.destination
+  return Object.keys(fd).length > 0
 })
 const canExecuteApproval = computed(() => hasApprovalExecutePermission(authStore.permissions))
 const canSubmit = computed(() => authStore.checkPermission('apply'))
@@ -310,12 +305,44 @@ const canReedit = computed(() =>
   approval.value?.applicantId === authStore.currentUser?.id
 )
 
+async function loadFormTemplate() {
+  const type = approval.value?.type
+  const code = typeToTemplateCode[type]
+  if (!code) {
+    templateFields.value = []
+    return
+  }
+  try {
+    const res = await formTemplateApi.getByCode(code)
+    if (res.data?.code === 200 && res.data.data) {
+      const template = res.data.data
+      let fields = []
+      if (template.fieldsConfig) {
+        try {
+          fields = typeof template.fieldsConfig === 'string'
+            ? JSON.parse(template.fieldsConfig)
+            : template.fieldsConfig
+        } catch (e) {
+          console.error('解析表单模板字段失败:', e)
+        }
+      }
+      templateFields.value = fields
+    } else {
+      templateFields.value = []
+    }
+  } catch (error) {
+    console.error('加载表单模板失败:', error)
+    templateFields.value = []
+  }
+}
+
 // 页面加载时获取详情和历史
 onMounted(async () => {
   const id = route.params.id
   loading.value = true
   await approvalStore.fetchApprovalById(id)
   await approvalStore.fetchApprovalHistory(id)
+  await loadFormTemplate()
   loading.value = false
 })
 
