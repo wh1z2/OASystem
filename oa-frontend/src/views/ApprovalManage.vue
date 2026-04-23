@@ -15,11 +15,9 @@
         </div>
         <select v-model="filterType" class="input w-40">
           <option value="">全部类型</option>
-          <option value="leave">请假申请</option>
-          <option value="expense">报销申请</option>
-          <option value="purchase">采购申请</option>
-          <option value="overtime">加班申请</option>
-          <option value="travel">出差申请</option>
+          <option v-for="template in templates" :key="template.id" :value="template.code">
+            {{ template.name }}
+          </option>
         </select>
         <select v-model="filterPriority" class="input w-32">
           <option value="">全部优先级</option>
@@ -142,6 +140,7 @@ import { useRouter } from 'vue-router'
 import { useApprovalStore } from '@/stores/approval'
 import { useAuthStore } from '@/stores/auth'
 import { hasPermission, hasAnyPermission, hasApprovalPermission, hasApprovalExecutePermission } from '@/utils/permission'
+import { formTemplateApi } from '@/api/formTemplate'
 
 const router = useRouter()
 const approvalStore = useApprovalStore()
@@ -156,6 +155,7 @@ const filterPriority = ref('')
 const showModal = ref(false)
 const currentItem = ref(null)
 const approveComment = ref('')
+const templates = ref([])
 
 const filteredApprovals = computed(() => {
   return approvalStore.approvals.filter(item => {
@@ -166,15 +166,18 @@ const filteredApprovals = computed(() => {
   })
 })
 
-function getTypeLabel(type) {
-  const labels = {
-    leave: '请假申请',
-    expense: '报销申请',
-    purchase: '采购申请',
-    overtime: '加班申请',
-    travel: '出差申请'
+async function loadTemplates() {
+  try {
+    const data = await formTemplateApi.getAll()
+    templates.value = data || []
+  } catch (error) {
+    console.error('加载表单模板列表失败:', error)
   }
-  return labels[type] || type
+}
+
+function getTypeLabel(typeCode) {
+  const template = templates.value.find(t => t.code === typeCode)
+  return template?.name || typeCode
 }
 
 function getPriorityLabel(priority) {
@@ -230,6 +233,7 @@ function showApproveModal(item) {
 
 // 页面加载时获取数据
 onMounted(() => {
+  loadTemplates()
   approvalStore.fetchApprovals()
 })
 

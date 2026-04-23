@@ -36,7 +36,7 @@ public class DefaultApproverResolver {
      * @param approvalType 审批类型
      * @return 解析结果
      */
-    public ResolverResult resolve(Long applicantId, Integer approvalType) {
+    public ResolverResult resolve(Long applicantId, String approvalType) {
         // 1. 获取申请人信息
         User applicant = userMapper.selectByIdWithRole(applicantId);
         if (applicant == null) {
@@ -77,7 +77,7 @@ public class DefaultApproverResolver {
     /**
      * 判断规则是否匹配当前申请
      */
-    private boolean isMatch(ApproverRule rule, User applicant, Integer approvalType) {
+    private boolean isMatch(ApproverRule rule, User applicant, String approvalType) {
         if (rule.getMatchConditions() == null || rule.getMatchConditions().isEmpty()) {
             // 无匹配条件表示匹配所有
             return true;
@@ -219,7 +219,7 @@ public class DefaultApproverResolver {
      */
     private static class MatchCondition {
         private List<Long> deptIds;
-        private List<Integer> types;
+        private List<String> types;
         private List<Long> roleIds;
 
         public List<Long> getDeptIds() {
@@ -230,11 +230,11 @@ public class DefaultApproverResolver {
             this.deptIds = deptIds;
         }
 
-        public List<Integer> getTypes() {
+        public List<String> getTypes() {
             return types;
         }
 
-        public void setTypes(List<Integer> types) {
+        public void setTypes(List<String> types) {
             this.types = types;
         }
 

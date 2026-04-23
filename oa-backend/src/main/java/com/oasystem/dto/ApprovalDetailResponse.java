@@ -21,9 +21,9 @@ public class ApprovalDetailResponse {
     private String title;
 
     /**
-     * 审批类型：1请假，2报销，3采购，4加班，5出差
+     * 审批类型（对应表单模板编码，如 LEAVE_FORM）
      */
-    private Integer type;
+    private String type;
 
     /**
      * 审批类型名称

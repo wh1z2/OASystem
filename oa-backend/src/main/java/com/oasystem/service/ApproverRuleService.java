@@ -37,5 +37,5 @@ public interface ApproverRuleService {
     /**
      * 规则效果预览
      */
-    ResolverResult preview(Long applicantId, Integer type);
+    ResolverResult preview(Long applicantId, String type);
 }

@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS sys_role (
 CREATE TABLE IF NOT EXISTS oa_approval (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'Primary Key ID',
     title VARCHAR(200) NOT NULL COMMENT 'Approval Title',
-    type TINYINT NOT NULL COMMENT 'Approval Type: 1=LEAVE, 2=EXPENSE, 3=PURCHASE, 4=OVERTIME, 5=TRAVEL',
+    type VARCHAR(50) NOT NULL COMMENT 'Approval Type (Form Template Code, e.g. LEAVE_FORM)',
     applicant_id BIGINT NOT NULL COMMENT 'Applicant ID (Logical FK to sys_user)',
     current_approver_id BIGINT COMMENT 'Current Approver ID (Logical FK to sys_user)',
     status TINYINT NOT NULL DEFAULT 0 COMMENT 'Status: 0=DRAFT, 1=PROCESSING, 2=APPROVED, 3=RETURNED, 4=REVOKED',
@@ -143,14 +143,14 @@ INSERT INTO oa_form_template (id, name, code, description, fields_config, flow_c
 
 -- 4. Insert Sample Approval Tickets
 -- Status: 0=DRAFT, 1=PROCESSING, 2=APPROVED, 3=RETURNED, 4=REVOKED
--- Type: 1=LEAVE, 2=EXPENSE, 3=PURCHASE, 4=OVERTIME, 5=TRAVEL
+-- Type: Form Template Code (e.g. LEAVE_FORM, EXPENSE_FORM)
 -- Priority: 0=LOW, 1=NORMAL, 2=HIGH
 INSERT INTO oa_approval (id, title, type, applicant_id, current_approver_id, status, priority, content, form_data) VALUES
-(1, '李四-病假申请', 1, 3, 2, 1, 1, '申请2天病假', '{"reason":"感冒发烧","type":"sick","startDate":"2026-03-27","endDate":"2026-03-28","remarks":"已就诊并开具病假条"}'),
-(2, '张三-差旅费报销', 2, 4, 2, 1, 2, '上海出差差旅费用报销', '{"item":"上海出差","amount":1500.00,"date":"2026-03-20","details":"包含往返机票、住宿费、餐费"}'),
-(3, '王五-办公椅采购', 3, 5, NULL, 2, 1, '采购办公椅2把', '{"itemName":"人体工学办公椅","quantity":2,"price":800,"reason":"现有椅子损坏，需要更换"}'),
-(4, '李四-年假申请', 1, 3, NULL, 3, 1, '申请3天年假', '{"reason":"家庭旅游","type":"annual","startDate":"2026-04-01","endDate":"2026-04-03","remarks":"提前两周已安排好工作"}'),
-(5, '张三-项目上线加班', 4, 4, NULL, 0, 2, '项目上线支持加班申请', '{"date":"2026-03-25","startTime":"18:00","endTime":"22:00","reason":"系统上线需要技术支持"}');
+(1, '李四-病假申请', 'LEAVE_FORM', 3, 2, 1, 1, '申请2天病假', '{"reason":"感冒发烧","type":"sick","startDate":"2026-03-27","endDate":"2026-03-28","remarks":"已就诊并开具病假条"}'),
+(2, '张三-差旅费报销', 'EXPENSE_FORM', 4, 2, 1, 2, '上海出差差旅费用报销', '{"item":"上海出差","amount":1500.00,"date":"2026-03-20","details":"包含往返机票、住宿费、餐费"}'),
+(3, '王五-办公椅采购', 'PURCHASE_FORM', 5, NULL, 2, 1, '采购办公椅2把', '{"itemName":"人体工学办公椅","quantity":2,"price":800,"reason":"现有椅子损坏，需要更换"}'),
+(4, '李四-年假申请', 'LEAVE_FORM', 3, NULL, 3, 1, '申请3天年假', '{"reason":"家庭旅游","type":"annual","startDate":"2026-04-01","endDate":"2026-04-03","remarks":"提前两周已安排好工作"}'),
+(5, '张三-项目上线加班', 'OVERTIME_FORM', 4, NULL, 0, 2, '项目上线支持加班申请', '{"date":"2026-03-25","startTime":"18:00","endTime":"22:00","reason":"系统上线需要技术支持"}');
 
 -- 5. Insert Sample Approval History
 -- Action: 0=SUBMIT, 1=APPROVE, 2=REJECT, 3=REEDIT, 4=REVOKE

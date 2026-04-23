@@ -1,7 +1,6 @@
 package com.oasystem.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.Map;
@@ -19,10 +18,10 @@ public class ApprovalCreateRequest {
     private String title;
 
     /**
-     * 审批类型：1请假，2报销，3采购，4加班，5出差
+     * 审批类型（对应表单模板编码，如 LEAVE_FORM）
      */
-    @NotNull(message = "审批类型不能为空")
-    private Integer type;
+    @NotBlank(message = "审批类型不能为空")
+    private String type;
 
     /**
      * 优先级：0低，1普通，2紧急

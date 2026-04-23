@@ -144,7 +144,7 @@ public class ApproverRuleServiceImpl implements ApproverRuleService {
     }
 
     @Override
-    public ResolverResult preview(Long applicantId, Integer type) {
+    public ResolverResult preview(Long applicantId, String type) {
         User applicant = userMapper.selectByIdWithRole(applicantId);
         if (applicant == null) {
             throw new BusinessException("申请人不存在");

@@ -189,32 +189,16 @@ const stats = computed(() => {
 
 const pendingList = computed(() => approvalStore.pendingApprovals.slice(0, 5))
 
-const typeLabels = {
-  leave: { label: '请假申请', color: '#3b82f6' },
-  expense: { label: '报销申请', color: '#22c55e' },
-  purchase: { label: '采购申请', color: '#f59e0b' },
-  overtime: { label: '加班申请', color: '#8b5cf6' },
-  travel: { label: '出差申请', color: '#ec4899' }
-}
-
-// 后端类型编码映射到前端字符串
-const backendTypeMap = {
-  1: 'leave',
-  2: 'expense',
-  3: 'purchase',
-  4: 'overtime',
-  5: 'travel'
-}
+const typeColorPalette = ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#84cc16']
 
 const approvalTypes = computed(() => {
   const ds = approvalStore.dashboardStatistics
   const distribution = ds?.approvalTypeDistribution || []
-  return distribution.map(item => {
-    const key = backendTypeMap[item.type] || item.type
+  return distribution.map((item, index) => {
     return {
-      name: key,
-      label: typeLabels[key]?.label || item.typeName || key,
-      color: typeLabels[key]?.color || '#6b7280',
+      name: item.type,
+      label: item.typeName || item.type,
+      color: typeColorPalette[index % typeColorPalette.length],
       count: item.count || 0
     }
   })

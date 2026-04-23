@@ -83,10 +83,10 @@ public class ApproverRule {
     private List<Long> matchDeptIds;
 
     /**
-     * 解析后的审批类型列表
+     * 解析后的审批类型列表（对应表单模板编码）
      */
     @TableField(exist = false)
-    private List<Integer> matchTypes;
+    private List<String> matchTypes;
 
     /**
      * 解析后的角色ID列表

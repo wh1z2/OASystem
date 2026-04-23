@@ -12,12 +12,12 @@ import com.oasystem.entity.Department;
 import com.oasystem.entity.User;
 import com.oasystem.enums.ApprovalEvent;
 import com.oasystem.enums.ApprovalStatus;
-import com.oasystem.enums.ApprovalType;
 import com.oasystem.enums.Priority;
 import com.oasystem.exception.BusinessException;
 import com.oasystem.mapper.ApprovalHistoryMapper;
 import com.oasystem.mapper.ApprovalMapper;
 import com.oasystem.mapper.DepartmentMapper;
+import com.oasystem.mapper.FormTemplateMapper;
 import com.oasystem.mapper.UserMapper;
 import com.oasystem.resolver.DefaultApproverResolver;
 import com.oasystem.service.ApprovalService;
@@ -49,6 +49,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     private final ApprovalHistoryMapper approvalHistoryMapper;
     private final UserMapper userMapper;
     private final DepartmentMapper departmentMapper;
+    private final FormTemplateMapper formTemplateMapper;
     private final StateMachine<ApprovalStatus, ApprovalEvent, ApprovalContext> stateMachine;
     private final ApprovalStateMachineHelper stateMachineHelper;
     private final DefaultApproverResolver defaultApproverResolver;
@@ -740,10 +741,15 @@ public class ApprovalServiceImpl implements ApprovalService {
         if (typeDistribution != null) {
             for (java.util.Map<String, Object> item : typeDistribution) {
                 DashboardStatisticsResponse.TypeDistributionItem distributionItem = new DashboardStatisticsResponse.TypeDistributionItem();
-                Integer typeCode = item.get("type") instanceof Number ? ((Number) item.get("type")).intValue() : null;
+                String typeCode = item.get("type") instanceof String ? (String) item.get("type") : null;
                 Long count = item.get("count") instanceof Number ? ((Number) item.get("count")).longValue() : 0L;
                 distributionItem.setType(typeCode);
-                distributionItem.setTypeName(typeCode != null ? ApprovalType.fromCode(typeCode).getLabel() : "");
+                if (typeCode != null) {
+                    com.oasystem.entity.FormTemplate template = formTemplateMapper.selectByCode(typeCode);
+                    distributionItem.setTypeName(template != null ? template.getName() : typeCode);
+                } else {
+                    distributionItem.setTypeName("");
+                }
                 distributionItem.setCount(count);
                 distributionItems.add(distributionItem);
             }
@@ -837,9 +843,9 @@ public class ApprovalServiceImpl implements ApprovalService {
         response.setCreateTime(approval.getCreateTime());
         response.setUpdateTime(approval.getUpdateTime());
 
-        // 设置枚举名称
-        ApprovalType type = ApprovalType.fromCode(approval.getType());
-        response.setTypeName(type != null ? type.getLabel() : "");
+        // 设置类型名称（通过表单模板查询）
+        com.oasystem.entity.FormTemplate template = formTemplateMapper.selectByCode(approval.getType());
+        response.setTypeName(template != null ? template.getName() : approval.getType());
 
         ApprovalStatus status = ApprovalStatus.fromCode(approval.getStatus());
         response.setStatusName(status != null ? status.getLabel() : "");

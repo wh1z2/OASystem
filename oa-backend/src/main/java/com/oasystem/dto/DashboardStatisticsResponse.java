@@ -46,9 +46,9 @@ public class DashboardStatisticsResponse {
     @Data
     public static class TypeDistributionItem {
         /**
-         * 类型编码
+         * 类型编码（对应表单模板编码）
          */
-        private Integer type;
+        private String type;
 
         /**
          * 类型名称

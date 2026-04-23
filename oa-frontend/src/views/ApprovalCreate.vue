@@ -19,11 +19,9 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">审批类型 <span class="text-danger-500">*</span></label>
               <select v-if="!isEditMode" v-model="form.type" class="input" required>
                 <option value="">请选择审批类型</option>
-                <option value="leave">请假申请</option>
-                <option value="expense">报销申请</option>
-                <option value="purchase">采购申请</option>
-                <option value="overtime">加班申请</option>
-                <option value="travel">出差申请</option>
+                <option v-for="template in templates" :key="template.id" :value="template.code">
+                  {{ template.name }}
+                </option>
               </select>
               <p v-else class="input bg-gray-50 text-gray-600">{{ getTypeLabel(form.type) }}</p>
             </div>
@@ -199,6 +197,7 @@ const resolverLoading = ref(false)
 const templateFields = ref([])
 const templateLoading = ref(false)
 const dynamicFormData = ref({})
+const templates = ref([])
 
 // 轻量提示弹窗状态
 const showAlert = ref(false)
@@ -241,24 +240,6 @@ const form = ref({
 const isEditMode = computed(() => !!route.params.id)
 const approvalId = computed(() => route.params.id)
 
-// 类型映射 (前端字符串 -> 后端数值)
-const typeMap = {
-  'leave': 1,
-  'expense': 2,
-  'purchase': 3,
-  'overtime': 4,
-  'travel': 5
-}
-
-// 类型反向映射 (后端数值 -> 前端字符串)
-const reverseTypeMap = {
-  1: 'leave',
-  2: 'expense',
-  3: 'purchase',
-  4: 'overtime',
-  5: 'travel'
-}
-
 // 优先级映射 (前端字符串 -> 后端数值)
 const priorityMap = {
   'low': 0,
@@ -273,17 +254,22 @@ const reversePriorityMap = {
   2: 'high'
 }
 
-// 审批类型到表单模板编码映射
-const typeToTemplateCode = {
-  'leave': 'LEAVE_FORM',
-  'expense': 'EXPENSE_FORM',
-  'purchase': 'PURCHASE_FORM',
-  'overtime': 'OVERTIME_FORM',
-  'travel': 'TRAVEL_FORM'
+async function loadTemplates() {
+  try {
+    const data = await formTemplateApi.getAll()
+    templates.value = (data || []).filter(t => t.status === 1)
+  } catch (error) {
+    console.error('加载表单模板列表失败:', error)
+  }
+}
+
+function getTypeLabel(typeCode) {
+  const template = templates.value.find(t => t.code === typeCode)
+  return template?.name || typeCode
 }
 
 async function fetchTemplate() {
-  const code = typeToTemplateCode[form.value.type]
+  const code = form.value.type
   if (!code) {
     templateFields.value = []
     dynamicFormData.value = {}
@@ -317,7 +303,7 @@ async function fetchTemplate() {
 
 const fetchPreview = async () => {
   const currentUserId = authStore.currentUser?.id
-  const type = typeMap[form.value.type]
+  const type = form.value.type
   if (!currentUserId || !type) {
     resolverResult.value = null
     return
@@ -344,12 +330,13 @@ watch(() => form.value.type, () => {
 
 // 编辑模式下加载已有数据
 onMounted(async () => {
+  await loadTemplates()
   await userStore.fetchUsers()
   if (isEditMode.value) {
     const result = await approvalStore.fetchApprovalById(approvalId.value)
     if (result.success) {
       const data = result.data
-      form.value.type = reverseTypeMap[data.type] || data.type
+      form.value.type = data.type || ''
       form.value.title = data.title
       form.value.priority = reversePriorityMap[data.priority] || data.priority
       form.value.content = data.content
@@ -391,7 +378,7 @@ async function handleSubmit() {
         showAlertDialog('保存失败', '保存失败：' + result.message)
       }
     } else {
-      approvalData.type = typeMap[form.value.type]
+      approvalData.type = form.value.type
       const result = await approvalStore.createApproval(approvalData)
       if (result.success) {
         // 创建成功后自动提交审批
@@ -412,17 +399,6 @@ async function handleSubmit() {
   }
 }
 
-function getTypeLabel(type) {
-  const labels = {
-    leave: '请假申请',
-    expense: '报销申请',
-    purchase: '采购申请',
-    overtime: '加班申请',
-    travel: '出差申请'
-  }
-  return labels[type] || type
-}
-
 async function handleSaveDraft() {
   if (isEditMode.value) {
     // 编辑模式下保存草稿即更新内容
@@ -435,7 +411,7 @@ async function handleSaveDraft() {
       title: form.value.title || '无标题草稿',
       priority: priorityMap[form.value.priority],
       content: form.value.content,
-      type: typeMap[form.value.type],
+      type: form.value.type,
       formData: { ...dynamicFormData.value }
     }
     const result = await approvalStore.createApproval(approvalData)

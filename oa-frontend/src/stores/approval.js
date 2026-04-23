@@ -11,15 +11,6 @@ const statusMap = {
   4: 'revoked'
 }
 
-// 类型映射 (后端数值 -> 前端字符串)
-const typeMap = {
-  1: 'leave',
-  2: 'expense',
-  3: 'purchase',
-  4: 'overtime',
-  5: 'travel'
-}
-
 // 优先级映射
 const priorityMap = {
   0: 'low',
@@ -79,7 +70,7 @@ export const useApprovalStore = defineStore('approval', () => {
     return {
       id: item.id,
       title: item.title,
-      type: typeMap[item.type] || item.type,
+      type: item.type,
       applicant: item.applicantName || item.applicant,
       applicantId: item.applicantId,
       department: item.deptName || item.department,

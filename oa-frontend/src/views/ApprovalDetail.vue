@@ -249,14 +249,20 @@ const comment = ref('')
 const loading = ref(false)
 const showRevokeConfirm = ref(false)
 const templateFields = ref([])
+const templates = ref([])
 
-// 审批类型到表单模板编码映射
-const typeToTemplateCode = {
-  'leave': 'LEAVE_FORM',
-  'expense': 'EXPENSE_FORM',
-  'purchase': 'PURCHASE_FORM',
-  'overtime': 'OVERTIME_FORM',
-  'travel': 'TRAVEL_FORM'
+async function loadTemplates() {
+  try {
+    const data = await formTemplateApi.getAll()
+    templates.value = data || []
+  } catch (error) {
+    console.error('加载表单模板列表失败:', error)
+  }
+}
+
+function getTypeLabel(typeCode) {
+  const template = templates.value.find(t => t.code === typeCode)
+  return template?.name || typeCode
 }
 
 // 轻量提示弹窗状态
@@ -306,8 +312,7 @@ const canReedit = computed(() =>
 )
 
 async function loadFormTemplate() {
-  const type = approval.value?.type
-  const code = typeToTemplateCode[type]
+  const code = approval.value?.type
   if (!code) {
     templateFields.value = []
     return
@@ -337,6 +342,7 @@ async function loadFormTemplate() {
 
 // 页面加载时获取详情和历史
 onMounted(async () => {
+  await loadTemplates()
   const id = route.params.id
   loading.value = true
   await approvalStore.fetchApprovalById(id)
@@ -344,17 +350,6 @@ onMounted(async () => {
   await loadFormTemplate()
   loading.value = false
 })
-
-function getTypeLabel(type) {
-  const labels = {
-    leave: '请假申请',
-    expense: '报销申请',
-    purchase: '采购申请',
-    overtime: '加班申请',
-    travel: '出差申请'
-  }
-  return labels[type] || type
-}
 
 function getPriorityLabel(priority) {
   const labels = {
