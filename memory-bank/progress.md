@@ -1042,4 +1042,47 @@
 
 ---
 
-*最后更新: 2026-04-22 (阶段八：表单设计器实现完成)*
+### 阶段十补充：审批类型字段重构（模板代码驱动）✅
+
+**完成日期**: 2026-04-23
+
+**执行内容**:
+
+#### 1. 后端类型字段重构
+- ✅ `Approval.type` 从 `Integer` 改为 `String`，直接存储 `FormTemplate.code`（如 `LEAVE_FORM`、`EXPENSE_FORM`）
+- ✅ 相关 DTO 同步调整：`ApprovalCreateRequest`、`ApprovalUpdateRequest`、`ApprovalQuery`、`ApprovalDetailResponse`、`DashboardStatisticsResponse`、`ResolverPreviewRequest`
+- ✅ `ApprovalServiceImpl` 移除 `ApprovalType` 枚举依赖，通过查询 `oa_form_template` 动态获取 `typeName`
+- ✅ `DefaultApproverResolver` 适配 `String` 类型的 `approvalType`
+- ✅ `ApproverRule.matchConditions.types` 从 `List<Integer>` 改为 `List<String>`
+
+#### 2. 前端动态类型下拉框
+- ✅ `ApprovalCreate.vue`：审批类型下拉框改为从 `/form-templates/all` 动态加载，移除硬编码的 5 种类型选项
+- ✅ `ApprovalDetail.vue`：类型标签通过查询模板列表动态获取名称，移除 `typeToTemplateCode` 硬编码映射
+- ✅ `ApprovalManage.vue`：筛选下拉框动态化，按实际模板列表渲染选项
+- ✅ `Dashboard.vue`：移除硬编码 `typeLabels`，直接复用后端返回的 `typeName`
+- ✅ `stores/approval.js`：`transformApproval()` 不再转换 `type` 字段，透传后端原始值
+
+#### 3. 数据库适配
+- ✅ `oa_approval.type` 列从 `TINYINT` 改为 `VARCHAR(50)`
+- ✅ `database/init.sql` 同步更新：样例数据的 `type` 值从 `1,2,3,4,5` 改为 `'LEAVE_FORM','EXPENSE_FORM','PURCHASE_FORM','OVERTIME_FORM','TRAVEL_FORM'`
+- ✅ 提供存量数据迁移 SQL，将历史数值映射为对应模板编码
+
+**新增/修改文件清单**:
+| 类型 | 文件 |
+|------|------|
+| 后端实体 | `oa-backend/entity/Approval.java` |
+| 后端 DTO | `oa-backend/dto/ApprovalCreateRequest.java`, `dto/ApprovalUpdateRequest.java`, `dto/ApprovalQuery.java`, `dto/ApprovalDetailResponse.java`, `dto/DashboardStatisticsResponse.java`, `dto/ResolverPreviewRequest.java` |
+| 后端 Service | `oa-backend/service/impl/ApprovalServiceImpl.java`, `oa-backend/service/impl/ApproverRuleServiceImpl.java` |
+| 后端解析引擎 | `oa-backend/resolver/DefaultApproverResolver.java` |
+| 后端规则实体 | `oa-backend/entity/ApproverRule.java` |
+| 后端接口 | `oa-backend/service/ApproverRuleService.java` |
+| 前端页面 | `oa-frontend/src/views/ApprovalCreate.vue`, `ApprovalDetail.vue`, `ApprovalManage.vue`, `Dashboard.vue` |
+| 前端 Store | `oa-frontend/src/stores/approval.js` |
+| 前端样式 | `oa-frontend/src/assets/main.css`（新增 `.badge-gray`） |
+| 数据库脚本 | `database/init.sql` |
+
+**验证状态**: ✅ 前后端编译通过，单元测试通过，新增模板即时出现在发起审批下拉框中
+
+---
+
+*最后更新: 2026-04-23 (审批类型字段重构完成，type 从 Integer 枚举改为 String 模板代码)*

@@ -1310,4 +1310,60 @@ ApprovalDetail.vue → GET /form-templates/code/{code}
 
 ---
 
-*最后更新: 2026-04-22 (阶段八：表单设计器实现完成)*
+### 审批类型存储方案演进（枚举整数 → 模板代码字符串）
+
+**问题背景**：
+系统初始设计将审批类型定义为固定枚举（`1=LEAVE`、`2=EXPENSE`…），硬编码在前端 `typeMap` 和后端 `ApprovalType` 枚举中。表单设计器支持用户自定义表单模板后，新增模板（如 `PROJECT_FORM`）无法被现有审批流程识别，因为类型枚举是封闭的，新增类型必须修改前后端代码并重新部署。
+
+**演进方案**：
+1. **字段类型变更**：`oa_approval.type` 从 `TINYINT` 改为 `VARCHAR(50)`
+2. **语义变更**：`type` 不再表示分类编号，而是直接存储 `FormTemplate.code`（如 `LEAVE_FORM`、`EXPENSE_FORM`）
+3. **名称解析**：详情/列表查询时通过查询 `oa_form_template` 表动态获取 `typeName`，彻底移除 `ApprovalType` 枚举
+4. **规则引擎适配**：`ApproverRule.matchConditions.types` 从 `List<Integer>` 改为 `List<String>`，支持按模板编码匹配
+
+**影响范围**：
+
+| 层级 | 变更点 |
+|------|--------|
+| 数据库 | `oa_approval.type` 列类型从 `TINYINT` 改为 `VARCHAR(50)` |
+| 后端实体 | `Approval.type`：`Integer` → `String` |
+| 后端 DTO | `ApprovalCreateRequest`、`ApprovalQuery`、`ApprovalDetailResponse` 等涉及 `type` 的全部 DTO |
+| 后端服务 | `ApprovalServiceImpl`（统计、详情查询）、`DefaultApproverResolver`（规则匹配） |
+| 前端创建页 | `ApprovalCreate.vue` 下拉框从硬编码 `<option>` 改为 `v-for` 动态加载模板列表 |
+| 前端详情页 | `ApprovalDetail.vue` 类型标签通过 `templates.find(t => t.code === type)` 动态解析 |
+| 前端管理页 | `ApprovalManage.vue` 筛选条件动态化 |
+| 前端工作台 | `Dashboard.vue` 移除 `typeLabels` 和 `backendTypeMap` 硬编码映射 |
+
+**设计优势**：
+- **零代码新增审批类型**：在表单设计器新建模板并启用后，立即可在发起审批页面选择使用，无需发布前后端代码
+- **前后端解耦**：前端不再维护 `typeMap`，完全由后端模板数据驱动，模板名称修改即时生效
+- **规则引擎兼容**：审批规则可按模板编码（如 `["LEAVE_FORM", "OVERTIME_FORM"]`）配置匹配范围，语义更清晰
+
+**前后端数据流**：
+```
+FormDesigner.vue → 创建模板 (code=PROJECT_FORM) → POST /form-templates
+Backend → 持久化到 oa_form_template
+
+ApprovalCreate.vue → GET /form-templates/all → templates[]
+                   → 用户选择 type=PROJECT_FORM
+                   → POST /approvals (type="PROJECT_FORM")
+
+ApprovalDetail.vue → GET /approvals/{id} → type="PROJECT_FORM"
+                   → GET /form-templates/code/PROJECT_FORM → typeName="项目申请单"
+```
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/entity/Approval.java` | `type` 字段改为 `String` |
+| `oa-backend/dto/ApprovalCreateRequest.java` | `type` 校验改为 `@NotBlank String` |
+| `oa-backend/service/impl/ApprovalServiceImpl.java` | 通过 `formTemplateMapper.selectByCode()` 动态获取 `typeName` |
+| `oa-backend/resolver/DefaultApproverResolver.java` | `resolve(Long, String)` 适配模板编码 |
+| `oa-frontend/src/views/ApprovalCreate.vue` | 动态加载模板列表作为审批类型选项 |
+| `oa-frontend/src/views/ApprovalDetail.vue` | 动态解析类型名称 |
+| `oa-frontend/src/views/ApprovalManage.vue` | 筛选下拉框动态化 |
+| `oa-frontend/src/stores/approval.js` | 移除 `typeMap`，透传后端原始 `type` 值 |
+
+---
+
+*最后更新: 2026-04-23 (审批类型字段重构完成，type 从 Integer 枚举改为 String 模板代码)*

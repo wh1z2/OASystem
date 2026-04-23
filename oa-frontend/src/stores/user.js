@@ -3,19 +3,8 @@ import { ref, computed } from 'vue'
 import apiClient from '@/api/config.js'
 
 export const useUserStore = defineStore('user', () => {
-  const users = ref([
-    { id: 1, username: 'admin', name: '系统管理员', email: 'admin@company.com', role: 'admin', department: '信息技术部', status: 'active', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin', phone: '13800138001' },
-    { id: 2, username: 'manager', name: '张经理', email: 'zhang@company.com', role: 'manager', department: '人力资源部', status: 'active', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=manager', phone: '13800138002' },
-    { id: 3, username: 'user', name: '李员工', email: 'li@company.com', role: 'employee', department: '市场部', status: 'active', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user', phone: '13800138003' },
-    { id: 4, username: 'sales', name: '王销售', email: 'wang@company.com', role: 'employee', department: '销售部', status: 'active', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sales', phone: '13800138004' },
-    { id: 5, username: 'admin2', name: '赵行政', email: 'zhao@company.com', role: 'employee', department: '行政部', status: 'active', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin2', phone: '13800138005' }
-  ])
-
-  const roles = ref([
-    { id: 1, name: 'admin', label: '系统管理员', permissions: ['all'], description: '拥有系统所有权限' },
-    { id: 2, name: 'manager', label: '部门经理', permissions: ['approval', 'user_view', 'report'], description: '审批权限、查看用户、查看报表' },
-    { id: 3, name: 'employee', label: '普通员工', permissions: ['apply', 'personal'], description: '提交申请、个人信息管理' }
-  ])
+  const users = ref([])
+  const roles = ref([])
 
   const activeUsers = computed(() => users.value.filter(u => u.status === 'active'))
   const userCount = computed(() => users.value.length)
@@ -24,64 +13,9 @@ export const useUserStore = defineStore('user', () => {
     return users.value.find(u => u.id === parseInt(id))
   }
 
-  function addUser(user) {
-    const newUser = {
-      id: users.value.length + 1,
-      ...user,
-      status: 'active',
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`
-    }
-    users.value.push(newUser)
-    return newUser
-  }
-
-  function updateUser(id, data) {
-    const index = users.value.findIndex(u => u.id === parseInt(id))
-    if (index !== -1) {
-      users.value[index] = { ...users.value[index], ...data }
-      return users.value[index]
-    }
-    return null
-  }
-
-  function deleteUser(id) {
-    const index = users.value.findIndex(u => u.id === parseInt(id))
-    if (index !== -1) {
-      users.value.splice(index, 1)
-      return true
-    }
-    return false
-  }
-
-  function getRoleById(id) {
-    return roles.value.find(r => r.id === parseInt(id))
-  }
-
-  function addRole(role) {
-    const newRole = {
-      id: roles.value.length + 1,
-      ...role
-    }
-    roles.value.push(newRole)
-    return newRole
-  }
-
-  function updateRole(id, data) {
-    const index = roles.value.findIndex(r => r.id === parseInt(id))
-    if (index !== -1) {
-      roles.value[index] = { ...roles.value[index], ...data }
-      return roles.value[index]
-    }
-    return null
-  }
-
-  function deleteRole(id) {
-    const index = roles.value.findIndex(r => r.id === parseInt(id))
-    if (index !== -1) {
-      roles.value.splice(index, 1)
-      return true
-    }
-    return false
+  function getRoleIdByName(roleName) {
+    const role = roles.value.find(r => r.name === roleName)
+    return role ? role.id : null
   }
 
   // 从后端获取用户列表
@@ -95,7 +29,7 @@ export const useUserStore = defineStore('user', () => {
           name: u.name,
           email: u.email,
           phone: u.phone,
-          avatar: u.avatar,
+          avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`,
           role: u.roleName,
           department: u.department,
           status: u.status === 1 ? 'active' : 'inactive'
@@ -106,11 +40,124 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // 创建用户
+  async function addUser(user) {
+    try {
+      const roleId = getRoleIdByName(user.role)
+      await apiClient.post('/users', {
+        username: user.username,
+        password: user.password,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        roleId: roleId,
+        status: 1
+      })
+      await fetchUsers()
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 更新用户
+  async function updateUser(id, data) {
+    try {
+      const roleId = getRoleIdByName(data.role)
+      await apiClient.post(`/users/${id}/update`, {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        roleId: roleId
+      })
+      await fetchUsers()
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 删除用户
+  async function deleteUser(id) {
+    try {
+      await apiClient.post(`/users/${id}/delete`)
+      await fetchUsers()
+      return true
+    } catch (error) {
+      console.error('删除用户失败:', error.message)
+      return false
+    }
+  }
+
+  // 从后端获取角色列表
+  async function fetchRoles() {
+    try {
+      const result = await apiClient.get('/roles/all')
+      if (result) {
+        roles.value = result.map(r => ({
+          id: r.id,
+          name: r.name,
+          label: r.label,
+          description: r.description,
+          permissions: r.permissions ? JSON.parse(r.permissions) : []
+        }))
+      }
+    } catch (error) {
+      console.warn('获取角色列表失败，使用本地数据:', error.message)
+    }
+  }
+
+  function getRoleById(id) {
+    return roles.value.find(r => r.id === parseInt(id))
+  }
+
+  // 创建角色
+  async function addRole(role) {
+    try {
+      await apiClient.post('/roles', {
+        name: role.name,
+        label: role.label,
+        description: role.description,
+        permissions: role.permissions || []
+      })
+      await fetchRoles()
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 更新角色
+  async function updateRole(id, data) {
+    try {
+      await apiClient.post(`/roles/${id}/update`, {
+        label: data.label,
+        description: data.description,
+        permissions: data.permissions || []
+      })
+      await fetchRoles()
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error.message }
+    }
+  }
+
+  // 删除角色
+  async function deleteRole(id) {
+    try {
+      await apiClient.post(`/roles/${id}/delete`)
+      await fetchRoles()
+      return true
+    } catch (error) {
+      console.error('删除角色失败:', error.message)
+      return false
+    }
+  }
+
   // 更新个人信息
   async function updateProfile(profileData) {
     try {
-      await apiClient.put('/users/profile', profileData)
-      // 更新本地存储的用户信息
+      await apiClient.post('/users/profile', profileData)
       const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
       localStorage.setItem('user', JSON.stringify({
         ...currentUser,
@@ -125,7 +172,7 @@ export const useUserStore = defineStore('user', () => {
   // 修改密码
   async function changePassword(passwordData) {
     try {
-      await apiClient.put('/users/password', passwordData)
+      await apiClient.post('/users/password', passwordData)
       return { success: true }
     } catch (error) {
       return {
@@ -149,6 +196,7 @@ export const useUserStore = defineStore('user', () => {
     updateRole,
     deleteRole,
     fetchUsers,
+    fetchRoles,
     updateProfile,
     changePassword
   }

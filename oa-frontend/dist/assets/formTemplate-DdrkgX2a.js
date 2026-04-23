@@ -1,0 +1,1 @@
+import{I as t}from"./index-BIhVxnt1.js";const p={getList:e=>t.get("/form-templates",{params:e}),getAll:()=>t.get("/form-templates/all"),getById:e=>t.get(`/form-templates/${e}`),getByCode:e=>t.get(`/form-templates/code/${e}`),create:e=>t.post("/form-templates",e),update:(e,m)=>t.post(`/form-templates/${e}/update`,m),delete:e=>t.post(`/form-templates/${e}/delete`)};export{p as f};

@@ -92,7 +92,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
 
@@ -166,4 +166,8 @@ function closeModal() {
     permissions: []
   }
 }
+
+onMounted(() => {
+  userStore.fetchRoles()
+})
 </script>
