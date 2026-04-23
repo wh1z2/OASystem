@@ -29,8 +29,7 @@ public class FormTemplateServiceImpl implements FormTemplateService {
     @Override
     public List<FormTemplate> listAllTemplates() {
         LambdaQueryWrapper<FormTemplate> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(FormTemplate::getStatus, 1);
-        wrapper.orderByAsc(FormTemplate::getId);
+        wrapper.orderByDesc(FormTemplate::getCreateTime);
         return formTemplateMapper.selectList(wrapper);
     }
 

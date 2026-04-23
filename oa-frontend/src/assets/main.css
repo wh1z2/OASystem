@@ -69,3 +69,7 @@ body {
 .badge-primary {
   @apply bg-primary-50 text-primary-600;
 }
+
+.badge-gray {
+  @apply bg-gray-100 text-gray-600;
+}

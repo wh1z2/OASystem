@@ -291,9 +291,8 @@ async function fetchTemplate() {
   }
   templateLoading.value = true
   try {
-    const res = await formTemplateApi.getByCode(code)
-    if (res.data?.code === 200 && res.data.data) {
-      const template = res.data.data
+    const template = await formTemplateApi.getByCode(code)
+    if (template) {
       let fields = []
       if (template.fieldsConfig) {
         try {

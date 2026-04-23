@@ -26,9 +26,14 @@
               <p class="font-medium text-gray-900">{{ template.name }}</p>
               <p class="text-sm text-gray-500">编码: {{ template.code }} | {{ template.description || '无描述' }}</p>
             </div>
-            <div class="flex items-center gap-2">
-              <button @click="editTemplate(template)" class="btn btn-secondary text-sm">编辑</button>
-              <button @click="confirmDelete(template)" class="btn btn-danger text-sm">删除</button>
+            <div class="flex items-center gap-3">
+              <span :class="template.status === 1 ? 'badge badge-success' : 'badge badge-gray'">
+                {{ template.status === 1 ? '启用' : '禁用' }}
+              </span>
+              <div class="flex items-center gap-2">
+                <button @click="editTemplate(template)" class="btn btn-secondary text-sm">编辑</button>
+                <button @click="confirmDelete(template)" class="btn btn-danger text-sm">删除</button>
+              </div>
             </div>
           </div>
         </div>
@@ -278,10 +283,8 @@ function handleAlertConfirm() {
 async function loadTemplates() {
   loading.value = true
   try {
-    const res = await formTemplateApi.getAll()
-    if (res.data?.code === 200) {
-      templates.value = res.data.data || []
-    }
+    const data = await formTemplateApi.getAll()
+    templates.value = data || []
   } catch (error) {
     console.error('加载表单模板失败:', error)
   } finally {
@@ -413,23 +416,15 @@ async function saveForm() {
       // 更新时去掉 code（不可修改）
       const updateData = { ...data }
       delete updateData.code
-      const res = await formTemplateApi.update(currentTemplateId.value, updateData)
-      if (res.data?.code === 200) {
-        showAlertDialog('保存成功', '表单模板已更新', {
-          onConfirm: () => backToList()
-        })
-      } else {
-        showAlertDialog('保存失败', res.data?.message || '更新失败')
-      }
+      await formTemplateApi.update(currentTemplateId.value, updateData)
+      showAlertDialog('保存成功', '表单模板已更新', {
+        onConfirm: () => backToList()
+      })
     } else {
-      const res = await formTemplateApi.create(data)
-      if (res.data?.code === 200) {
-        showAlertDialog('保存成功', '表单模板已创建', {
-          onConfirm: () => backToList()
-        })
-      } else {
-        showAlertDialog('保存失败', res.data?.message || '创建失败')
-      }
+      await formTemplateApi.create(data)
+      showAlertDialog('保存成功', '表单模板已创建', {
+        onConfirm: () => backToList()
+      })
     }
   } catch (error) {
     console.error('保存表单模板失败:', error)
@@ -448,15 +443,11 @@ function confirmDelete(template) {
 
 async function doDelete(id) {
   try {
-    const res = await formTemplateApi.delete(id)
-    if (res.data?.code === 200) {
-      loadTemplates()
-    } else {
-      showAlertDialog('删除失败', res.data?.message || '删除失败')
-    }
+    await formTemplateApi.delete(id)
+    loadTemplates()
   } catch (error) {
     console.error('删除表单模板失败:', error)
-    showAlertDialog('删除失败', error.response?.data?.message || '网络错误')
+    showAlertDialog('删除失败', error.message || '网络错误')
   }
 }
 

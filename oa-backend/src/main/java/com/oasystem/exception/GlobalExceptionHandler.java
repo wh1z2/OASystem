@@ -2,7 +2,9 @@ package com.oasystem.exception;
 
 import com.oasystem.dto.Result;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -57,6 +59,24 @@ public class GlobalExceptionHandler {
     public Result<Void> handleBadCredentialsException(BadCredentialsException e) {
         log.warn("认证失败: {}", e.getMessage());
         return Result.unauthorized("用户名或密码错误");
+    }
+
+    /**
+     * 处理 Spring Security 访问拒绝异常（@PreAuthorize 权限不足）
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public Result<Void> handleAccessDeniedException(AccessDeniedException e) {
+        log.warn("权限不足: {}", e.getMessage());
+        return Result.forbidden("无权访问该资源，权限不足");
+    }
+
+    /**
+     * 处理 Spring Security 认证异常
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public Result<Void> handleAuthenticationException(AuthenticationException e) {
+        log.warn("认证失败: {}", e.getMessage());
+        return Result.unauthorized("认证失败，请重新登录");
     }
 
     /**
