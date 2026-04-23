@@ -6,6 +6,13 @@ export const useUserStore = defineStore('user', () => {
   const users = ref([])
   const roles = ref([])
 
+  const departments = ref([
+    { id: 1, name: '技术部' },
+    { id: 2, name: '财务部' },
+    { id: 3, name: '人事部' },
+    { id: 4, name: '系统管理部' }
+  ])
+
   const activeUsers = computed(() => users.value.filter(u => u.status === 'active'))
   const userCount = computed(() => users.value.length)
 
@@ -16,6 +23,11 @@ export const useUserStore = defineStore('user', () => {
   function getRoleIdByName(roleName) {
     const role = roles.value.find(r => r.name === roleName)
     return role ? role.id : null
+  }
+
+  function getDeptNameById(deptId) {
+    const dept = departments.value.find(d => d.id === deptId)
+    return dept ? dept.name : ''
   }
 
   // 从后端获取用户列表
@@ -31,6 +43,7 @@ export const useUserStore = defineStore('user', () => {
           phone: u.phone,
           avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`,
           role: u.roleName,
+          deptId: u.deptId,
           department: u.department,
           status: u.status === 1 ? 'active' : 'inactive'
         }))
@@ -50,6 +63,7 @@ export const useUserStore = defineStore('user', () => {
         name: user.name,
         email: user.email,
         phone: user.phone,
+        deptId: user.deptId || null,
         roleId: roleId,
         status: 1
       })
@@ -68,6 +82,7 @@ export const useUserStore = defineStore('user', () => {
         name: data.name,
         email: data.email,
         phone: data.phone,
+        deptId: data.deptId || null,
         roleId: roleId
       })
       await fetchUsers()
@@ -185,6 +200,7 @@ export const useUserStore = defineStore('user', () => {
   return {
     users,
     roles,
+    departments,
     activeUsers,
     userCount,
     getUserById,
@@ -192,6 +208,7 @@ export const useUserStore = defineStore('user', () => {
     updateUser,
     deleteUser,
     getRoleById,
+    getDeptNameById,
     addRole,
     updateRole,
     deleteRole,

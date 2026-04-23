@@ -1,6 +1,5 @@
 @tailwind base;
 @tailwind components;
-@tailwind utilities;
 
 * {
   margin: 0;
@@ -73,3 +72,5 @@ body {
 .badge-gray {
   @apply bg-gray-100 text-gray-600;
 }
+
+@tailwind utilities;

@@ -12,11 +12,11 @@
 
     <div class="card">
       <div class="flex items-center gap-4 mb-6">
-        <div class="relative flex-1">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2">
+        <div class="relative flex-1 min-w-[240px]">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
-          <input v-model="searchQuery" type="text" placeholder="搜索用户名、姓名、邮箱..." class="input pl-10" />
+          <input v-model="searchQuery" type="text" placeholder="搜索用户名、姓名、邮箱..." class="input w-full pl-10" />
         </div>
         <select v-model="filterRole" class="input w-40">
           <option value="">全部角色</option>
@@ -86,6 +86,14 @@
       </table>
     </div>
 
+    <ConfirmDialog
+      :visible="showDeleteConfirm"
+      title="删除确认"
+      message="确定要删除该用户吗？"
+      @confirm="handleDeleteConfirm"
+      @cancel="showDeleteConfirm = false"
+    />
+
     <div v-if="showAddModal || showEditModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="closeModal">
       <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-6">{{ showAddModal ? '添加用户' : '编辑用户' }}</h3>
@@ -113,7 +121,10 @@
           
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">部门</label>
-            <input v-model="userForm.department" type="text" class="input" />
+            <select v-model="userForm.deptId" class="input w-full">
+              <option value="">请选择部门</option>
+              <option v-for="dept in userStore.departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
+            </select>
           </div>
           
           <div>
@@ -149,6 +160,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const userStore = useUserStore()
 const authStore = useAuthStore()
@@ -159,13 +171,15 @@ const searchQuery = ref('')
 const filterRole = ref('')
 const showAddModal = ref(false)
 const showEditModal = ref(false)
+const showDeleteConfirm = ref(false)
+const deletingUserId = ref(null)
 const editingUserId = ref(null)
 const userForm = ref({
   name: '',
   username: '',
   email: '',
   phone: '',
-  department: '',
+  deptId: '',
   role: '',
   password: ''
 })
@@ -196,7 +210,7 @@ function editUser(user) {
     username: user.username,
     email: user.email,
     phone: user.phone,
-    department: user.department,
+    deptId: user.deptId || '',
     role: user.role,
     password: ''
   }
@@ -204,9 +218,16 @@ function editUser(user) {
 }
 
 function deleteUser(id) {
-  if (confirm('确定要删除该用户吗？')) {
-    userStore.deleteUser(id)
+  deletingUserId.value = id
+  showDeleteConfirm.value = true
+}
+
+function handleDeleteConfirm() {
+  if (deletingUserId.value !== null) {
+    userStore.deleteUser(deletingUserId.value)
   }
+  showDeleteConfirm.value = false
+  deletingUserId.value = null
 }
 
 function handleSubmit() {
@@ -227,7 +248,7 @@ function closeModal() {
     username: '',
     email: '',
     phone: '',
-    department: '',
+    deptId: '',
     role: '',
     password: ''
   }
