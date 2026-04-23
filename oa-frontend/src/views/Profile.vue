@@ -159,6 +159,14 @@
         </div>
       </div>
     </div>
+
+    <ConfirmDialog
+      :visible="showAlert"
+      :title="alertTitle"
+      :message="alertMessage"
+      :show-cancel="false"
+      @confirm="showAlert = false"
+    />
   </div>
 </template>
 
@@ -168,6 +176,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useApprovalStore } from '@/stores/approval'
 import { useUserStore } from '@/stores/user'
 import { hasApprovalPermission } from '@/utils/permission'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const authStore = useAuthStore()
 const approvalStore = useApprovalStore()
@@ -203,6 +212,16 @@ function togglePasswordVisibility(field) {
   showPassword.value[field] = !showPassword.value[field]
 }
 
+const showAlert = ref(false)
+const alertTitle = ref('提示')
+const alertMessage = ref('')
+
+function showAlertDialog(title, message) {
+  alertTitle.value = title
+  alertMessage.value = message
+  showAlert.value = true
+}
+
 const stats = computed(() => {
   const myApprovals = approvalStore.approvals.filter(a => a.applicantId === authStore.currentUser?.id)
   return {
@@ -232,11 +251,11 @@ async function handleSave() {
 
   const result = await userStore.updateProfile(profileData)
   if (result.success) {
-    alert('保存成功！')
+    showAlertDialog('保存成功', '保存成功！')
     // 刷新用户信息
     await authStore.fetchCurrentUser()
   } else {
-    alert('保存失败：' + result.message)
+    showAlertDialog('保存失败', '保存失败：' + result.message)
   }
 }
 
@@ -247,19 +266,19 @@ function resetForm() {
 async function handleChangePassword() {
   // 前端验证
   if (!passwordForm.value.currentPassword) {
-    alert('请输入原密码')
+    showAlertDialog('验证失败', '请输入原密码')
     return
   }
   if (!passwordForm.value.newPassword) {
-    alert('请输入新密码')
+    showAlertDialog('验证失败', '请输入新密码')
     return
   }
   if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-    alert('两次输入的新密码不一致')
+    showAlertDialog('验证失败', '两次输入的新密码不一致')
     return
   }
   if (passwordForm.value.newPassword.length < 6) {
-    alert('新密码长度不能少于6位')
+    showAlertDialog('验证失败', '新密码长度不能少于6位')
     return
   }
 
@@ -270,7 +289,7 @@ async function handleChangePassword() {
   })
 
   if (result.success) {
-    alert('密码修改成功！')
+    showAlertDialog('修改成功', '密码修改成功！')
     // 清空表单
     passwordForm.value = {
       currentPassword: '',
@@ -278,7 +297,7 @@ async function handleChangePassword() {
       confirmPassword: ''
     }
   } else {
-    alert('密码修改失败：' + result.message)
+    showAlertDialog('修改失败', '密码修改失败：' + result.message)
   }
 }
 

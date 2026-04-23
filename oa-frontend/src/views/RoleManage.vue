@@ -88,6 +88,14 @@
         </form>
       </div>
     </div>
+
+    <ConfirmDialog
+      :visible="showDeleteConfirm"
+      title="删除确认"
+      message="确定要删除该角色吗？"
+      @confirm="handleDeleteConfirm"
+      @cancel="showDeleteConfirm = false"
+    />
   </div>
 </template>
 
@@ -95,6 +103,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const userStore = useUserStore()
 const authStore = useAuthStore()
@@ -103,6 +112,8 @@ const canManageRoles = computed(() => authStore.checkPermission('role_manage') |
 
 const showAddModal = ref(false)
 const showEditModal = ref(false)
+const showDeleteConfirm = ref(false)
+const deleteRoleId = ref(null)
 const editingRoleId = ref(null)
 const roleForm = ref({
   name: '',
@@ -141,9 +152,14 @@ function editRole(role) {
 }
 
 function deleteRole(id) {
-  if (confirm('确定要删除该角色吗？')) {
-    userStore.deleteRole(id)
-  }
+  deleteRoleId.value = id
+  showDeleteConfirm.value = true
+}
+
+function handleDeleteConfirm() {
+  userStore.deleteRole(deleteRoleId.value)
+  showDeleteConfirm.value = false
+  deleteRoleId.value = null
 }
 
 function handleSubmit() {

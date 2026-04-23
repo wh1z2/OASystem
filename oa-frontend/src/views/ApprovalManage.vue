@@ -131,6 +131,14 @@
         </div>
       </div>
     </div>
+
+    <ConfirmDialog
+      :visible="showAlert"
+      :title="alertTitle"
+      :message="alertMessage"
+      :show-cancel="false"
+      @confirm="showAlert = false"
+    />
   </div>
 </template>
 
@@ -141,6 +149,7 @@ import { useApprovalStore } from '@/stores/approval'
 import { useAuthStore } from '@/stores/auth'
 import { hasPermission, hasAnyPermission, hasApprovalPermission, hasApprovalExecutePermission } from '@/utils/permission'
 import { formTemplateApi } from '@/api/formTemplate'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const router = useRouter()
 const approvalStore = useApprovalStore()
@@ -156,6 +165,16 @@ const showModal = ref(false)
 const currentItem = ref(null)
 const approveComment = ref('')
 const templates = ref([])
+
+const showAlert = ref(false)
+const alertTitle = ref('提示')
+const alertMessage = ref('')
+
+function showAlertDialog(title, message) {
+  alertTitle.value = title
+  alertMessage.value = message
+  showAlert.value = true
+}
 
 const filteredApprovals = computed(() => {
   return approvalStore.approvals.filter(item => {
@@ -221,7 +240,7 @@ async function handleReedit(item) {
   if (result.success) {
     await approvalStore.fetchApprovals()
   } else {
-    alert('重新编辑失败：' + result.message)
+    showAlertDialog('重新编辑失败', '重新编辑失败：' + result.message)
   }
 }
 
