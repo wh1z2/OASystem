@@ -273,7 +273,7 @@ class PermissionProxyApprovalTest {
     private Long createTestApproval(String title, Long applicantId) {
         ApprovalCreateRequest request = new ApprovalCreateRequest();
         request.setTitle(title);
-        request.setType(ApprovalType.LEAVE.getCode());
+        request.setType("LEAVE_FORM");
         request.setContent("测试内容");
         request.setFormData(Map.of("test", true));
         return approvalService.create(request, applicantId);

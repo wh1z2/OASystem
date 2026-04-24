@@ -69,7 +69,7 @@
             </td>
             <td class="py-3 px-4">
               <span class="text-sm text-gray-700">{{ rule.approverTypeName }}</span>
-              <div class="text-xs text-gray-500">{{ rule.approverValue }}</div>
+              <div class="text-xs text-gray-500">{{ formatApproverValue(rule) }}</div>
             </td>
             <td class="py-3 px-4 text-sm text-gray-700">{{ rule.priority }}</td>
             <td class="py-3 px-4">
@@ -461,6 +461,31 @@ async function handleDeleteConfirm() {
   }
 }
 
+function formatApproverValue(rule) {
+  if (!rule.approverValue) return '-'
+  try {
+    const values = JSON.parse(rule.approverValue)
+    if (!Array.isArray(values) || values.length === 0) return '-'
+
+    if (rule.approverType === 1) {
+      const names = values.map(id => {
+        const user = userStore.getUserById(id)
+        return user ? user.name : `用户#${id}`
+      })
+      return names.join(', ')
+    } else if (rule.approverType === 2) {
+      const names = values.map(id => {
+        const role = userStore.getRoleById(id)
+        return role ? role.label : `角色#${id}`
+      })
+      return names.join(', ')
+    }
+    return rule.approverValue
+  } catch (e) {
+    return rule.approverValue
+  }
+}
+
 function formatMatchConditions(conditions) {
   if (!conditions) return '无'
   const parts = []
@@ -522,5 +547,6 @@ function handleSort(field) {
 onMounted(() => {
   fetchRules()
   userStore.fetchUsers()
+  userStore.fetchRoles()
 })
 </script>

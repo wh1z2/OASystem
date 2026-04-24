@@ -30,19 +30,22 @@ class ApprovalServiceRegressionTest {
     @Autowired
     private ApprovalMapper approvalMapper;
 
-    // 测试用户ID
-    private static final Long USER_ID_ADMIN = 1L;      // admin, 技术部
-    private static final Long USER_ID_MANAGER = 2L;    // 张经理, 技术部, 有审批权限
-    private static final Long USER_ID_LISI = 3L;       // 李四, 财务部
-    private static final Long USER_ID_ZHANGSAN = 4L;   // 张三, 财务部
-    private static final Long USER_ID_WANGWU = 5L;     // 王五, 人事部
+    // 测试用户ID（来自实际数据库中的测试数据）
+    private static final Long USER_ID_ADMIN = 1L;         // 系统管理员, 系统管理部(dept=4)
+    private static final Long USER_ID_MANAGER = 2L;       // 张经理, 技术部(dept=1), 有审批权限
+    private static final Long USER_ID_LISI = 3L;          // 李四, 财务部(dept=2)
+    private static final Long USER_ID_ZHANGSAN = 4L;      // 张三, 财务部(dept=2)
+    private static final Long USER_ID_WANGWU = 5L;        // 王五, 人事部(dept=3)
+    private static final Long USER_ID_LIU_MANAGER = 6L;   // 刘经理, 财务部(dept=2)
+    private static final Long USER_ID_LI_MANAGER = 7L;    // 李经理, 人事部(dept=3)
+    private static final Long USER_ID_ZHAO_MANAGER = 8L;  // 赵经理, 系统管理部(dept=4)
 
     private static final Long USER_ID_NON_EXIST = 9999L;
 
-    // 审批类型
-    private static final Integer TYPE_LEAVE = 1;       // 请假（技术部有规则）
-    private static final Integer TYPE_EXPENSE = 2;     // 报销（全局固定人员规则）
-    private static final Integer TYPE_OVERTIME = 4;    // 加班（技术部有规则）
+    // 审批类型（字符串编码，与 ApprovalCreateRequest.type 一致）
+    private static final String TYPE_LEAVE = "LEAVE_FORM";       // 请假（技术部有规则）
+    private static final String TYPE_EXPENSE = "EXPENSE_FORM";   // 报销（全局固定人员规则）
+    private static final String TYPE_OVERTIME = "OVERTIME_FORM"; // 加班（技术部有规则）
 
     /**
      * 原有功能：手动指定审批人时，优先使用手动指定，不走自动解析
@@ -84,10 +87,10 @@ class ApprovalServiceRegressionTest {
     }
 
     /**
-     * 新功能：未指定审批人时，自动解析（技术部请假 → 部门经理）
+     * 新功能：未指定审批人时，自动解析（系统管理部请假 → 部门经理赵经理）
      */
     @Test
-    @DisplayName("create: 未指定审批人时自动解析（技术部请假→张经理）")
+    @DisplayName("create: 未指定审批人时自动解析（系统管理部请假→赵经理）")
     void testCreateWithAutoResolve_DeptRole() {
         ApprovalCreateRequest request = new ApprovalCreateRequest();
         request.setTitle("自动解析审批人测试");
@@ -100,7 +103,7 @@ class ApprovalServiceRegressionTest {
         assertNotNull(id);
         Approval approval = approvalMapper.selectById(id);
         assertNotNull(approval);
-        assertEquals(USER_ID_MANAGER, approval.getCurrentApproverId());
+        assertEquals(USER_ID_ZHAO_MANAGER, approval.getCurrentApproverId());
     }
 
     /**
@@ -127,29 +130,25 @@ class ApprovalServiceRegressionTest {
      * 新功能：自动解析失败时，创建草稿仍成功（currentApproverId 为 null），但提交时会抛出异常
      */
     @Test
-    @DisplayName("create: 自动解析失败时允许创建草稿，但提交时抛出异常")
-    void testCreateWithAutoResolveFailure() {
+    @DisplayName("create: 无人事部规则时走兜底策略，创建草稿成功并分配部门经理")
+    void testCreateWithAutoResolveFallback() {
         ApprovalCreateRequest request = new ApprovalCreateRequest();
-        request.setTitle("自动解析失败测试");
+        request.setTitle("自动解析兜底测试");
         request.setType(TYPE_LEAVE);
         request.setContent("测试内容");
         request.setFormData(Map.of("test", true));
         // 不设置 currentApproverId
 
-        // 王五(人事部) 请假，无人事部规则且无部门经理，创建草稿时应成功
+        // 王五(人事部) 请假，无人事部规则但人事部现有部门经理，兜底策略应生效
         Long id = approvalService.create(request, USER_ID_WANGWU);
         assertNotNull(id);
 
         Approval approval = approvalMapper.selectById(id);
-        assertNull(approval.getCurrentApproverId());
+        assertNotNull(approval.getCurrentApproverId());
 
-        // 提交时应因无法解析审批人而失败
-        BusinessException exception = assertThrows(BusinessException.class, () -> {
-            approvalService.submit(id, USER_ID_WANGWU);
-        });
-
-        assertTrue(exception.getMessage().contains("未找到匹配的审批规则")
-                || exception.getMessage().contains("无法定位部门负责人"));
+        // 提交时应成功
+        Boolean success = approvalService.submit(id, USER_ID_WANGWU);
+        assertTrue(success);
     }
 
     /**
@@ -250,7 +249,7 @@ class ApprovalServiceRegressionTest {
     /**
      * 创建草稿工单（不指定审批人，用于测试自动解析）
      */
-    private Long createDraftApprovalWithoutApprover(String title, Long applicantId, Integer type) {
+    private Long createDraftApprovalWithoutApprover(String title, Long applicantId, String type) {
         Approval approval = new Approval();
         approval.setTitle(title);
         approval.setType(type);

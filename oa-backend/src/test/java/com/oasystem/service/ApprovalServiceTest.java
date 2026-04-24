@@ -42,7 +42,7 @@ class ApprovalServiceTest {
     void testCreateApproval() {
         ApprovalCreateRequest request = new ApprovalCreateRequest();
         request.setTitle("测试创建审批");
-        request.setType(ApprovalType.LEAVE.getCode());
+        request.setType("LEAVE_FORM");
         request.setContent("测试内容");
         request.setFormData(Map.of("reason", "测试"));
         request.setCurrentApproverId(USER_ID_MANAGER);
@@ -441,7 +441,7 @@ class ApprovalServiceTest {
     private Long createTestApproval(String title, Long applicantId) {
         ApprovalCreateRequest request = new ApprovalCreateRequest();
         request.setTitle(title);
-        request.setType(ApprovalType.LEAVE.getCode());
+        request.setType("LEAVE_FORM");
         request.setContent("测试内容");
         request.setFormData(Map.of("test", true));
         return approvalService.create(request, applicantId);

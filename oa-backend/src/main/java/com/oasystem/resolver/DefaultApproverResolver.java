@@ -92,11 +92,9 @@ public class DefaultApproverResolver {
             }
         }
 
-        // 校验审批类型匹配
-        if (!CollectionUtils.isEmpty(condition.getTypes())) {
-            if (approvalType == null || !condition.getTypes().contains(approvalType)) {
-                return false;
-            }
+        // 校验审批类型匹配（兼容字符串编码和数字两种格式）
+        if (!typeMatches(condition.getTypes(), approvalType)) {
+            return false;
         }
 
         // 校验角色匹配
@@ -107,6 +105,48 @@ public class DefaultApproverResolver {
         }
 
         return true;
+    }
+
+    /**
+     * 审批类型是否匹配
+     * 兼容规则中存储的数字（"1"-"5"）和字符串编码（LEAVE_FORM 等）两种格式
+     * 注意：数据库中 types 可能是 JSON 数字数组，FastJSON2 反序列化后元素类型为 Integer
+     */
+    private boolean typeMatches(List<?> ruleTypes, String approvalType) {
+        if (CollectionUtils.isEmpty(ruleTypes)) {
+            return true;
+        }
+        if (approvalType == null) {
+            return false;
+        }
+        String numericType = mapTypeCodeToNumber(approvalType);
+        for (Object ruleType : ruleTypes) {
+            String rt = String.valueOf(ruleType);
+            if (approvalType.equals(rt) || numericType.equals(rt)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 将审批类型的字符串编码映射为数字字符串
+     */
+    private String mapTypeCodeToNumber(String typeCode) {
+        switch (typeCode) {
+            case "LEAVE_FORM":
+                return "1";
+            case "EXPENSE_FORM":
+                return "2";
+            case "PURCHASE_FORM":
+                return "3";
+            case "OVERTIME_FORM":
+                return "4";
+            case "TRAVEL_FORM":
+                return "5";
+            default:
+                return typeCode;
+        }
     }
 
     /**

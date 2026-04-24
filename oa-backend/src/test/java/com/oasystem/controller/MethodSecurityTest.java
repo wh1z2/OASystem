@@ -85,7 +85,7 @@ class MethodSecurityTest {
     void testNoApplyPermissionCannotCreateApproval() throws Exception {
         ApprovalCreateRequest request = new ApprovalCreateRequest();
         request.setTitle("测试申请");
-        request.setType(1);
+        request.setType("LEAVE_FORM");
 
         mockMvc.perform(post("/approvals")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -100,7 +100,7 @@ class MethodSecurityTest {
     void testApplyPermissionCanCreateApproval() throws Exception {
         ApprovalCreateRequest request = new ApprovalCreateRequest();
         request.setTitle("测试申请");
-        request.setType(1);
+        request.setType("LEAVE_FORM");
 
         when(approvalService.create(any(), anyLong())).thenReturn(1L);
 
@@ -473,7 +473,7 @@ class MethodSecurityTest {
 
         ApprovalCreateRequest createRequest = new ApprovalCreateRequest();
         createRequest.setTitle("测试申请");
-        createRequest.setType(1);
+        createRequest.setType("LEAVE_FORM");
         mockMvc.perform(post("/approvals")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createRequest)))

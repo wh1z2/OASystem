@@ -25,13 +25,14 @@ class ApproverRuleServiceTest {
     @Autowired
     private ApproverRuleService ruleService;
 
-    // 测试用户ID
-    private static final Long USER_ID_ADMIN = 1L;
-    private static final Long USER_ID_MANAGER = 2L;
-    private static final Long USER_ID_LISI = 3L;
+    // 测试用户ID（来自实际数据库中的测试数据）
+    private static final Long USER_ID_ADMIN = 1L;         // 系统管理员, 系统管理部(dept=4)
+    private static final Long USER_ID_MANAGER = 2L;       // 张经理, 技术部(dept=1)
+    private static final Long USER_ID_LISI = 3L;          // 李四, 财务部(dept=2)
+    private static final Long USER_ID_ZHAO_MANAGER = 8L;  // 赵经理, 系统管理部(dept=4)
 
-    private static final Integer TYPE_LEAVE = 1;
-    private static final Integer TYPE_EXPENSE = 2;
+    private static final String TYPE_LEAVE = "LEAVE_FORM";
+    private static final String TYPE_EXPENSE = "EXPENSE_FORM";
 
     @Test
     @DisplayName("创建审批规则")
@@ -62,7 +63,7 @@ class ApproverRuleServiceTest {
         ApproverRuleUpdateRequest request = new ApproverRuleUpdateRequest();
         request.setName("更新后名称");
         request.setStrategyType(ApproverStrategyType.FIXED_USER.getCode());
-        request.setMatchConditions(Map.of("types", new Integer[]{2, 3}));
+        request.setMatchConditions(Map.of("types", new String[]{"EXPENSE_FORM", "PURCHASE_FORM"}));
         request.setApproverType(ApproverType.SPECIFIC_USER.getCode());
         request.setApproverValue("[1]");
         request.setPriority(50);
@@ -194,14 +195,14 @@ class ApproverRuleServiceTest {
     }
 
     @Test
-    @DisplayName("规则效果预览：技术部请假应解析到部门经理")
+    @DisplayName("规则效果预览：系统管理部请假应解析到部门经理")
     void testPreview() {
-        // admin(技术部) 请假
+        // 系统管理员(系统管理部) 请假，匹配系统管理部规则后自审跳过，兜底到赵经理
         ResolverResult result = ruleService.preview(USER_ID_ADMIN, TYPE_LEAVE);
 
         assertNotNull(result);
         assertTrue(result.isSuccess(), "预览应成功，实际消息：" + result.getMessage());
-        assertEquals(USER_ID_MANAGER, result.getApproverId());
+        assertEquals(USER_ID_ZHAO_MANAGER, result.getApproverId());
     }
 
     @Test
@@ -215,13 +216,14 @@ class ApproverRuleServiceTest {
     }
 
     @Test
-    @DisplayName("规则效果预览：无匹配规则时应返回失败结果")
+    @DisplayName("规则效果预览：无匹配规则时走兜底策略，返回部门经理")
     void testPreviewNoMatch() {
-        // 王五(人事部) 请假，当前人事部无经理，应返回失败
+        // 王五(人事部) 请假，无人事部专属规则，但人事部现有部门经理，兜底策略应成功
         ResolverResult result = ruleService.preview(5L, TYPE_LEAVE);
 
         assertNotNull(result);
-        assertFalse(result.isSuccess());
+        assertTrue(result.isSuccess(), "兜底策略应成功，实际消息：" + result.getMessage());
+        assertNotNull(result.getApproverId());
     }
 
     @Test
@@ -241,7 +243,7 @@ class ApproverRuleServiceTest {
         ApproverRuleCreateRequest request = new ApproverRuleCreateRequest();
         request.setName(name);
         request.setStrategyType(ApproverStrategyType.DEPT_ROLE.getCode());
-        request.setMatchConditions(Map.of("deptIds", new Long[]{1L}, "types", new Integer[]{1, 4}));
+        request.setMatchConditions(Map.of("deptIds", new Long[]{1L}, "types", new String[]{"LEAVE_FORM", "OVERTIME_FORM"}));
         request.setApproverType(ApproverType.SPECIFIC_ROLE.getCode());
         request.setApproverValue("[2]");
         request.setPriority(100);
