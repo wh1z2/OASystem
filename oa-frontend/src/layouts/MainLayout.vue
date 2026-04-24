@@ -189,8 +189,8 @@ function getRoleLabel(role) {
   return labels[role] || role
 }
 
-function handleLogout() {
-  authStore.logout()
+async function handleLogout() {
+  await authStore.logout()
   router.push('/login')
 }
 

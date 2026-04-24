@@ -26,6 +26,9 @@ public class JwtTokenUtil {
     @Value("${jwt.expiration:1800000}")
     private Long expiration;
 
+    @Value("${jwt.refresh-expiration:604800000}")
+    private Long refreshExpiration;
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
@@ -49,6 +52,42 @@ public class JwtTokenUtil {
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSigningKey(), Jwts.SIG.HS256)
                 .compact();
+    }
+
+    /**
+     * 生成 Refresh Token
+     *
+     * @param userId   用户ID
+     * @param username 用户名
+     * @return Refresh Token字符串
+     */
+    public String generateRefreshToken(Long userId, String username) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", userId);
+        claims.put("username", username);
+        claims.put("type", "refresh");
+
+        return Jwts.builder()
+                .claims(claims)
+                .subject(String.valueOf(userId))
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + refreshExpiration))
+                .signWith(getSigningKey(), Jwts.SIG.HS256)
+                .compact();
+    }
+
+    /**
+     * 获取 Access Token 绝对过期时间戳（毫秒）
+     */
+    public Long getAccessTokenExpiresAt(Long userId, String username) {
+        return System.currentTimeMillis() + expiration;
+    }
+
+    /**
+     * 获取 Refresh Token 绝对过期时间戳（毫秒）
+     */
+    public Long getRefreshTokenExpiresAt(Long userId, String username) {
+        return System.currentTimeMillis() + refreshExpiration;
     }
 
     /**

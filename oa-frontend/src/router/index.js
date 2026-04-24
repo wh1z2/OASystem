@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { hasPermission, hasAnyPermission, hasRole, hasApprovalPermission } from '@/utils/permission'
+import { showAuthExpiredDialog, clearAuthStorage } from '@/utils/authDialog.js'
 
 const routes = [
   {
@@ -110,8 +111,20 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+
+  // Token 过期前置检查：如 token 已过期且无 refreshToken，直接清理并跳转
+  if (to.meta.requiresAuth && authStore.isAuthenticated) {
+    const tokenExpiresAt = Number(localStorage.getItem('tokenExpiresAt') || 0)
+    const refreshToken = localStorage.getItem('refreshToken')
+    if (tokenExpiresAt > 0 && Date.now() > tokenExpiresAt && !refreshToken) {
+      clearAuthStorage()
+      showAuthExpiredDialog()
+      next('/login')
+      return
+    }
+  }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')

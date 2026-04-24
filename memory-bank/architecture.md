@@ -1364,6 +1364,63 @@ ApprovalDetail.vue → GET /approvals/{id} → type="PROJECT_FORM"
 | `oa-frontend/src/views/ApprovalManage.vue` | 筛选下拉框动态化 |
 | `oa-frontend/src/stores/approval.js` | 移除 `typeMap`，透传后端原始 `type` 值 |
 
+### Token 过期处理与双 Token 自动刷新架构
+
+**问题背景**：
+系统存在三个核心问题：1) `application.yml` 将 JWT 有效期配置为 24 小时，与需求要求的 30 分钟不符；2) 后端 `RestAuthenticationEntryPoint` 返回 HTTP 200 + 业务码 401，但前端 Axios 拦截器仅按 HTTP 状态码判断，导致 token 过期被当作普通网络错误；3) 无用户活动感知机制，无法实现基于活动的自动续期。
+
+**设计决策**：
+采用 **"双 Token（Access Token + Refresh Token）+ 前端活动感知 + 自动静默刷新 + ConfirmDialog 兜底"** 四层架构：
+
+**后端变更**：
+1. **JWT 配置修正**：`jwt.expiration` 从 `86400000`(24h) 改为 `1800000`(30min)，新增 `jwt.refresh-expiration: 604800000`(7天)
+2. **Refresh Token 持久化**：新建 `refresh_token` 表（`id`, `user_id`, `token`, `expires_at`, `revoked`），支持单点登出与 Token 轮换
+3. **双 Token 生成**：`AuthServiceImpl.login()` 同时生成 Access Token 和 Refresh Token，后者存入数据库
+4. **刷新接口**：`POST /auth/refresh` 校验 Refresh Token 签名、数据库状态、过期时间，生成新 token 对并将旧 token 标记为 revoked
+5. **登出接口**：`POST /auth/logout` 将当前用户的所有 Refresh Token 标记为 revoked
+
+**前端变更**：
+1. **Axios 拦截器重构**：
+   - 响应成功回调中增加 `code === 401` 识别，reject 带 `isAuthError` 标记的对象
+   - 错误拦截器中认证错误优先调用 `handleTokenRefresh()`，成功后重试原请求；失败则弹窗
+   - 独立 `refreshClient` 实例用于刷新请求，避免拦截器递归
+2. **Token 预检机制**：请求拦截器在 token 剩余有效期 ≤5 分钟且用户 30 分钟内有活动时，自动调用 `/auth/refresh`
+3. **刷新队列**：`isRefreshing` + `refreshSubscribers` 保护并发请求，确保同一时刻只发一次刷新请求
+4. **活动监听**：`useActivityTracker.js` 监听 `mousedown/keydown/touchstart/scroll`，更新 `lastActivity` 到 localStorage
+5. **标准化弹窗**：`authDialog.js` 使用 `ConfirmDialog.vue` 显示 "您的登录已过期，请重新登录"，点击确定后跳转 `/login`
+6. **路由守卫增强**：`beforeEach` 中检查 token 过期且无 refreshToken 时，直接清理状态并弹窗
+
+**关键时序**：
+```
+用户活跃操作 → lastActivity 更新
+     ↓
+发起 API 请求 → 请求拦截器检查 token 剩余时间
+     ↓
+剩余 ≤5min 且 30min 内有活动 → handleTokenRefresh() → 更新 localStorage
+     ↓
+携带新 token 发起原请求
+     ↓
+若 token 确实过期且刷新失败 → 响应拦截器 catch → showAuthExpiredDialog() → 跳转登录
+```
+
+**相关文件**：
+| 文件 | 作用 |
+|------|------|
+| `oa-backend/resources/application.yml` | JWT 有效期配置修正 |
+| `oa-backend/entity/RefreshToken.java` | Refresh Token 实体 |
+| `oa-backend/mapper/RefreshTokenMapper.java` | Refresh Token 数据访问 |
+| `oa-backend/service/AuthService.java` / `impl/AuthServiceImpl.java` | 双 Token 生成、刷新、登出 |
+| `oa-backend/controller/AuthController.java` | `/auth/refresh`、`/auth/logout` 端点 |
+| `oa-backend/dto/RefreshTokenResponse.java` | Token 刷新响应 DTO |
+| `oa-backend/util/JwtTokenUtil.java` | 新增 `generateRefreshToken`、`getAccessTokenExpiresAt` |
+| `database/refresh-token-migration.sql` | 数据库迁移脚本 |
+| `oa-frontend/src/api/config.js` | Axios 拦截器重构（401 适配、预检、刷新队列） |
+| `oa-frontend/src/stores/auth.js` | 扩展 refreshToken/tokenExpiresAt 存储 |
+| `oa-frontend/src/router/index.js` | 路由守卫增加过期检查 |
+| `oa-frontend/src/composables/useActivityTracker.js` | 用户活动监听 |
+| `oa-frontend/src/utils/authDialog.js` | ConfirmDialog 弹窗封装 |
+| `oa-frontend/src/App.vue` | 全局挂载活动监听 |
+
 ---
 
-*最后更新: 2026-04-23 (审批类型字段重构完成，type 从 Integer 枚举改为 String 模板代码)*
+*最后更新: 2026-04-24 (Token 过期处理完成，双 Token + 活动感知 + 自动静默刷新架构落地)*

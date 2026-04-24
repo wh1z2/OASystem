@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import apiClient from '@/api/config.js'
 import { hasPermission, hasAnyPermission, hasRole } from '@/utils/permission.js'
+import { showAuthExpiredDialog, clearAuthStorage } from '@/utils/authDialog.js'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -46,12 +47,15 @@ export const useAuthStore = defineStore('auth', () => {
         password: credentials.password
       })
 
-      // 后端返回: { token, tokenType, expiresIn, user }
+      // 后端返回: { token, tokenType, expiresIn, refreshToken, refreshExpiresAt, user }
       token.value = data.token
       user.value = data.user
 
       localStorage.setItem('token', data.token)
+      localStorage.setItem('refreshToken', data.refreshToken)
       localStorage.setItem('user', JSON.stringify(data.user))
+      localStorage.setItem('tokenExpiresAt', String(Date.now() + (data.expiresIn || 1800000)))
+      localStorage.setItem('lastActivity', String(Date.now()))
 
       return { success: true }
     } catch (error) {
@@ -60,11 +64,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // 登出
-  function logout() {
+  async function logout() {
+    try {
+      // 调用后端登出接口，撤销 refresh token
+      await apiClient.post('/auth/logout')
+    } catch (error) {
+      // 忽略后端错误，确保前端状态一定被清除
+    }
     user.value = null
     token.value = null
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    clearAuthStorage()
   }
 
   // 获取当前用户信息 - 调用后端接口
@@ -76,8 +85,11 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('user', JSON.stringify(user.value))
       return user.value
     } catch (error) {
-      // Token 无效，清除登录状态
-      logout()
+      // Token 无效，清除登录状态并弹窗提示
+      user.value = null
+      token.value = null
+      clearAuthStorage()
+      showAuthExpiredDialog()
       return null
     }
   }
