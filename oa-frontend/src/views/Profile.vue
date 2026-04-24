@@ -37,7 +37,7 @@
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">部门</label>
-                <input v-model="form.department" type="text" class="input" />
+                <input v-model="form.department" type="text" class="input" disabled />
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">角色</label>
@@ -248,8 +248,7 @@ async function handleSave() {
   const profileData = {
     name: form.value.name,
     phone: form.value.phone,
-    email: form.value.email,
-    department: form.value.department
+    email: form.value.email
   }
 
   const result = await userStore.updateProfile(profileData)
