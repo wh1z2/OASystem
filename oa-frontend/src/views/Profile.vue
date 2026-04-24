@@ -171,7 +171,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useApprovalStore } from '@/stores/approval'
 import { useUserStore } from '@/stores/user'
@@ -223,12 +223,15 @@ function showAlertDialog(title, message) {
 }
 
 const stats = computed(() => {
-  const myApprovals = approvalStore.approvals.filter(a => a.applicantId === authStore.currentUser?.id)
+  const ds = approvalStore.dashboardStatistics
+  if (!ds) {
+    return { submitted: 0, approved: 0, rejected: 0, pending: 0 }
+  }
   return {
-    submitted: myApprovals.length,
-    approved: myApprovals.filter(a => a.status === 'approved').length,
-    rejected: myApprovals.filter(a => a.status === 'rejected').length,
-    pending: myApprovals.filter(a => a.status === 'pending').length
+    submitted: ds.myApprovalCount || 0,
+    approved: ds.approvedCount || 0,
+    rejected: ds.rejectedCount || 0,
+    pending: ds.pendingCount || 0
   }
 })
 
@@ -315,7 +318,15 @@ function initForm() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await authStore.fetchCurrentUser()
   initForm()
+  approvalStore.fetchDashboardStatistics()
 })
+
+watch(() => authStore.currentUser, (newUser) => {
+  if (newUser) {
+    initForm()
+  }
+}, { immediate: true })
 </script>

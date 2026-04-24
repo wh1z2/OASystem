@@ -71,9 +71,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchCurrentUser() {
     try {
       const data = await apiClient.get('/auth/info')
-      user.value = data
-      localStorage.setItem('user', JSON.stringify(data))
-      return data
+      // 合并新旧数据，防止后端返回字段不全导致已有数据丢失
+      user.value = { ...user.value, ...data }
+      localStorage.setItem('user', JSON.stringify(user.value))
+      return user.value
     } catch (error) {
       // Token 无效，清除登录状态
       logout()
