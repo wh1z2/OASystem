@@ -17,7 +17,7 @@ export const useUserStore = defineStore('user', () => {
   const userCount = computed(() => users.value.length)
 
   function getUserById(id) {
-    return users.value.find(u => u.id === parseInt(id))
+    return users.value.find(u => String(u.id) === String(id))
   }
 
   function getRoleIdByName(roleName) {
@@ -123,7 +123,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function getRoleById(id) {
-    return roles.value.find(r => r.id === parseInt(id))
+    return roles.value.find(r => String(r.id) === String(id))
   }
 
   // 创建角色
