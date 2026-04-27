@@ -267,4 +267,20 @@ class DefaultApproverResolverTest {
         assertTrue(result.isSuccess());
         assertEquals(USER_ID_MANAGER, result.getApproverId());
     }
+
+    @Test
+    @DisplayName("兜底策略防自审：当部门唯一经理是申请人本人时，应返回失败")
+    void testFallbackPreventsSelfReview() {
+        // 清理所有规则，强制走兜底策略
+        ruleMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>());
+
+        // 张经理(技术部, role=manager) 请假，技术部唯一的经理就是张经理本人
+        // 兜底策略查找部门经理时会排除申请人本人，应返回失败
+        ResolverResult result = resolver.resolve(USER_ID_MANAGER, TYPE_LEAVE);
+
+        assertNotNull(result);
+        assertFalse(result.isSuccess(), "兜底策略应失败，实际消息：" + result.getMessage());
+        assertNull(result.getApproverId());
+        assertTrue(result.getMessage().contains("申请人不能审批自己的申请"));
+    }
 }

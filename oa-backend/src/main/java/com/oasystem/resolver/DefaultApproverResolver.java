@@ -233,6 +233,7 @@ public class DefaultApproverResolver {
 
     /**
      * 兜底策略：查找申请人所在部门下 role_id = 2 (manager) 的用户
+     * 严格排除申请人本人，彻底防止自审
      */
     private ResolverResult fallbackResolve(User applicant) {
         if (applicant.getDeptId() == null) {
@@ -242,17 +243,25 @@ public class DefaultApproverResolver {
         LambdaQueryWrapper<User> wrapper = Wrappers.lambdaQuery();
         wrapper.eq(User::getDeptId, applicant.getDeptId())
                 .eq(User::getRoleId, 2L)
-                .eq(User::getStatus, 1)
-                .last("LIMIT 1");
-        User deptManager = userMapper.selectOne(wrapper);
+                .eq(User::getStatus, 1);
+        List<User> deptManagers = userMapper.selectList(wrapper);
 
-        if (deptManager != null) {
-            log.info("兜底策略生效：使用部门经理作为审批人，deptId={}, managerId={}",
-                    applicant.getDeptId(), deptManager.getId());
-            return ResolverResult.success(deptManager.getId(), null, "默认部门负责人兜底策略", deptManager.getName());
+        for (User manager : deptManagers) {
+            if (manager.getId() != null && !manager.getId().equals(applicant.getId())) {
+                log.info("兜底策略生效：使用部门经理作为审批人，deptId={}, managerId={}",
+                        applicant.getDeptId(), manager.getId());
+                return ResolverResult.success(manager.getId(), null, "默认部门负责人兜底策略", manager.getName());
+            }
         }
 
-        return ResolverResult.failed("未找到匹配的审批规则，且无法定位部门负责人，请联系管理员配置审批规则");
+        if (!CollectionUtils.isEmpty(deptManagers)) {
+            log.warn("兜底策略失败：申请人所在部门的所有经理均为申请人本人，无法指定其他审批人，deptId={}, applicantId={}",
+                    applicant.getDeptId(), applicant.getId());
+        } else {
+            log.warn("兜底策略失败：申请人所在部门无可用经理，deptId={}", applicant.getDeptId());
+        }
+
+        return ResolverResult.failed("未找到匹配的审批规则，且无法定位部门负责人（申请人不能审批自己的申请），请联系管理员配置审批规则");
     }
 
     /**

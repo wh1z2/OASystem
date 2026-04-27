@@ -56,7 +56,7 @@ class AuthPermissionTest {
                 List.of("all", "approval:execute", "approval:execute:all")
         );
         LoginResponse response = new LoginResponse(
-                "mock-token", "Bearer", 3600L, userInfo
+                "mock-token", "Bearer", 3600L, "mock-refresh-token", 7200L, userInfo
         );
 
         when(authService.login(any())).thenReturn(response);
@@ -112,7 +112,7 @@ class AuthPermissionTest {
                 List.of("apply", "personal")
         );
         LoginResponse response = new LoginResponse(
-                "mock-token", "Bearer", 3600L, userInfo
+                "mock-token", "Bearer", 3600L, "mock-refresh-token", 7200L, userInfo
         );
 
         when(authService.login(any())).thenReturn(response);
