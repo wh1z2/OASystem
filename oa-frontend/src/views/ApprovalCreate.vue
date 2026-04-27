@@ -222,6 +222,9 @@ function handleAlertConfirm() {
 
 const previewApproverName = computed(() => {
   if (!resolverResult.value?.success) return ''
+  if (resolverResult.value.approverName) {
+    return resolverResult.value.approverName
+  }
   const approver = userStore.getUserById(resolverResult.value.approverId)
   return approver?.name || `用户#${resolverResult.value.approverId}`
 })

@@ -197,6 +197,12 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // 手动重置状态（Setup Store 默认不提供 $reset）
+  function $reset() {
+    users.value = []
+    roles.value = []
+  }
+
   return {
     users,
     roles,
@@ -215,6 +221,7 @@ export const useUserStore = defineStore('user', () => {
     fetchUsers,
     fetchRoles,
     updateProfile,
-    changePassword
+    changePassword,
+    $reset
   }
 })

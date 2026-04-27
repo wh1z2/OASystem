@@ -37,11 +37,20 @@ public class ResolverResult {
      */
     private String message;
 
+    /**
+     * 审批人姓名
+     */
+    private String approverName;
+
     public static ResolverResult success(Long approverId, Long ruleId, String ruleName) {
-        return new ResolverResult(true, approverId, ruleId, ruleName, "匹配成功");
+        return new ResolverResult(true, approverId, ruleId, ruleName, "匹配成功", null);
+    }
+
+    public static ResolverResult success(Long approverId, Long ruleId, String ruleName, String approverName) {
+        return new ResolverResult(true, approverId, ruleId, ruleName, "匹配成功", approverName);
     }
 
     public static ResolverResult failed(String message) {
-        return new ResolverResult(false, null, null, null, message);
+        return new ResolverResult(false, null, null, null, message, null);
     }
 }

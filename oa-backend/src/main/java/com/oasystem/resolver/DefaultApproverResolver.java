@@ -61,9 +61,10 @@ public class DefaultApproverResolver {
                         log.warn("规则匹配成功但审批人是申请人本人，跳过：ruleId={}, applicantId={}", rule.getId(), applicantId);
                         continue;
                     }
+                    String approverName = getApproverName(approverId);
                     log.info("自动解析审批人成功：ruleId={}, ruleName={}, approverId={}, applicantId={}",
                             rule.getId(), rule.getName(), approverId, applicantId);
-                    return ResolverResult.success(approverId, rule.getId(), rule.getName());
+                    return ResolverResult.success(approverId, rule.getId(), rule.getName(), approverName);
                 } else {
                     log.warn("规则匹配成功但无法解析到有效审批人，继续匹配下一条：ruleId={}", rule.getId());
                 }
@@ -248,10 +249,21 @@ public class DefaultApproverResolver {
         if (deptManager != null) {
             log.info("兜底策略生效：使用部门经理作为审批人，deptId={}, managerId={}",
                     applicant.getDeptId(), deptManager.getId());
-            return ResolverResult.success(deptManager.getId(), null, "默认部门负责人兜底策略");
+            return ResolverResult.success(deptManager.getId(), null, "默认部门负责人兜底策略", deptManager.getName());
         }
 
         return ResolverResult.failed("未找到匹配的审批规则，且无法定位部门负责人，请联系管理员配置审批规则");
+    }
+
+    /**
+     * 获取审批人姓名
+     */
+    private String getApproverName(Long approverId) {
+        if (approverId == null) {
+            return null;
+        }
+        User user = userMapper.selectById(approverId);
+        return user != null ? user.getName() : null;
     }
 
     /**

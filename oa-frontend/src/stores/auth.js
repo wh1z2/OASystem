@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import apiClient from '@/api/config.js'
+import { useUserStore } from '@/stores/user'
 import { hasPermission, hasAnyPermission, hasRole } from '@/utils/permission.js'
 import { showAuthExpiredDialog, clearAuthStorage } from '@/utils/authDialog.js'
 
@@ -74,6 +75,10 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     token.value = null
     clearAuthStorage()
+
+    // 清空用户缓存，防止跨账号数据污染
+    const userStore = useUserStore()
+    userStore.$reset()
   }
 
   // 获取当前用户信息 - 调用后端接口
