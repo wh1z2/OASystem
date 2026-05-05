@@ -65,6 +65,8 @@
           </div>
         </form>
 
+        <!-- 测试账号区块已隐藏 -->
+        <!--
         <div class="mt-6 pt-6 border-t border-gray-200">
           <p class="text-center text-sm text-gray-500 mb-3">测试账号</p>
           <div class="grid grid-cols-3 gap-2 text-xs">
@@ -83,6 +85,7 @@
           </div>
           <p class="text-center text-xs text-gray-400 mt-2">密码均为: 账号名 + 123</p>
         </div>
+        -->
       </div>
     </div>
   </div>

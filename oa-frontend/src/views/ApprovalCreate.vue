@@ -62,6 +62,7 @@
               <DynamicForm :fields="templateFields" v-model="dynamicFormData" />
             </div>
 
+            <!-- 附件上传（后端未实现，暂时隐藏）
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">附件</label>
               <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-400 transition-colors cursor-pointer">
@@ -72,6 +73,7 @@
                 <p class="text-xs text-gray-400 mt-1">支持 PDF、Word、Excel、图片等格式</p>
               </div>
             </div>
+            -->
 
             <div class="flex gap-4 pt-4">
               <button type="submit" class="btn btn-primary flex-1">

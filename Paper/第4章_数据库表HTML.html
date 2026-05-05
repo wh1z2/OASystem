@@ -1,0 +1,160 @@
+<h3>4.4.2 数据库逻辑结构设计</h3>
+<p>系统采用 MySQL 8.0 作为关系型数据库，字符集统一为 utf8mb4 以支持完整 Unicode 字符存储。以下列出各核心数据表的逻辑结构，字段类型与约束基于实体类及数据库初始化脚本整理。</p>
+
+<p><strong>（1）部门表（sys_dept）</strong></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+  <tr style="background-color:#f2f2f2;">
+    <th style="text-align:left;">字段名</th>
+    <th style="text-align:left;">类型</th>
+    <th style="text-align:left;">主/外键</th>
+    <th style="text-align:left;">说明</th>
+  </tr>
+  <tr><td>id</td><td>BIGINT</td><td>PK</td><td>部门唯一标识，自增</td></tr>
+  <tr><td>parent_id</td><td>BIGINT</td><td>FK（逻辑）</td><td>上级部门 ID，支持层级</td></tr>
+  <tr><td>name</td><td>VARCHAR(100)</td><td></td><td>部门名称，非空</td></tr>
+  <tr><td>code</td><td>VARCHAR(50)</td><td>UK</td><td>部门编码，唯一</td></tr>
+  <tr><td>description</td><td>VARCHAR(200)</td><td></td><td>部门描述</td></tr>
+  <tr><td>sort_order</td><td>INT</td><td></td><td>排序号，默认 0</td></tr>
+  <tr><td>status</td><td>TINYINT</td><td></td><td>状态：0 禁用，1 启用</td></tr>
+  <tr><td>create_time</td><td>DATETIME</td><td></td><td>创建时间</td></tr>
+  <tr><td>update_time</td><td>DATETIME</td><td></td><td>更新时间</td></tr>
+</table>
+
+<p><strong>（2）角色表（sys_role）</strong></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+  <tr style="background-color:#f2f2f2;">
+    <th style="text-align:left;">字段名</th>
+    <th style="text-align:left;">类型</th>
+    <th style="text-align:left;">主/外键</th>
+    <th style="text-align:left;">说明</th>
+  </tr>
+  <tr><td>id</td><td>BIGINT</td><td>PK</td><td>角色唯一标识，自增</td></tr>
+  <tr><td>name</td><td>VARCHAR(50)</td><td>UK</td><td>角色标识，唯一</td></tr>
+  <tr><td>label</td><td>VARCHAR(100)</td><td></td><td>角色显示名</td></tr>
+  <tr><td>description</td><td>VARCHAR(500)</td><td></td><td>角色描述</td></tr>
+  <tr><td>permissions</td><td>JSON</td><td></td><td>权限编码集合，JSON 数组格式</td></tr>
+  <tr><td>create_time</td><td>DATETIME</td><td></td><td>创建时间</td></tr>
+</table>
+
+<p><strong>（3）用户表（sys_user）</strong></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+  <tr style="background-color:#f2f2f2;">
+    <th style="text-align:left;">字段名</th>
+    <th style="text-align:left;">类型</th>
+    <th style="text-align:left;">主/外键</th>
+    <th style="text-align:left;">说明</th>
+  </tr>
+  <tr><td>id</td><td>BIGINT</td><td>PK</td><td>用户唯一标识，自增</td></tr>
+  <tr><td>username</td><td>VARCHAR(50)</td><td>UK</td><td>用户名，唯一</td></tr>
+  <tr><td>password</td><td>VARCHAR(100)</td><td></td><td>密码，BCrypt 加密存储</td></tr>
+  <tr><td>name</td><td>VARCHAR(50)</td><td></td><td>真实姓名</td></tr>
+  <tr><td>email</td><td>VARCHAR(100)</td><td></td><td>邮箱</td></tr>
+  <tr><td>phone</td><td>VARCHAR(20)</td><td></td><td>手机号</td></tr>
+  <tr><td>avatar</td><td>VARCHAR(200)</td><td></td><td>头像 URL</td></tr>
+  <tr><td>role_id</td><td>BIGINT</td><td>FK（逻辑）</td><td>角色 ID</td></tr>
+  <tr><td>dept_id</td><td>BIGINT</td><td>FK（逻辑）</td><td>部门 ID</td></tr>
+  <tr><td>status</td><td>TINYINT</td><td></td><td>状态：0 禁用，1 启用</td></tr>
+  <tr><td>create_time</td><td>DATETIME</td><td></td><td>创建时间</td></tr>
+  <tr><td>update_time</td><td>DATETIME</td><td></td><td>更新时间</td></tr>
+</table>
+<p>索引设计：idx_role_id、idx_dept_id、idx_status 分别加速按角色、部门、状态的查询。</p>
+
+<p><strong>（4）审批工单表（oa_approval）</strong></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+  <tr style="background-color:#f2f2f2;">
+    <th style="text-align:left;">字段名</th>
+    <th style="text-align:left;">类型</th>
+    <th style="text-align:left;">主/外键</th>
+    <th style="text-align:left;">说明</th>
+  </tr>
+  <tr><td>id</td><td>BIGINT</td><td>PK</td><td>工单唯一标识，自增</td></tr>
+  <tr><td>title</td><td>VARCHAR(200)</td><td></td><td>审批标题</td></tr>
+  <tr><td>type</td><td>VARCHAR(50)</td><td></td><td>审批类型（表单模板编码）</td></tr>
+  <tr><td>applicant_id</td><td>BIGINT</td><td>FK（逻辑）</td><td>申请人 ID</td></tr>
+  <tr><td>current_approver_id</td><td>BIGINT</td><td>FK（逻辑）</td><td>当前审批人 ID</td></tr>
+  <tr><td>status</td><td>TINYINT</td><td></td><td>状态：0 草稿，1 审批中，2 已通过，3 已打回，4 已撤销</td></tr>
+  <tr><td>priority</td><td>TINYINT</td><td></td><td>优先级：0 低，1 普通，2 紧急</td></tr>
+  <tr><td>content</td><td>TEXT</td><td></td><td>申请内容</td></tr>
+  <tr><td>form_data</td><td>JSON</td><td></td><td>表单数据，JSON 格式</td></tr>
+  <tr><td>create_time</td><td>DATETIME</td><td></td><td>创建时间</td></tr>
+  <tr><td>update_time</td><td>DATETIME</td><td></td><td>更新时间</td></tr>
+</table>
+<p>索引设计：idx_applicant_id、idx_current_approver_id、idx_status、idx_type、idx_create_time 覆盖工单列表查询的主要筛选维度。</p>
+
+<p><strong>（5）审批历史表（oa_approval_history）</strong></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+  <tr style="background-color:#f2f2f2;">
+    <th style="text-align:left;">字段名</th>
+    <th style="text-align:left;">类型</th>
+    <th style="text-align:left;">主/外键</th>
+    <th style="text-align:left;">说明</th>
+  </tr>
+  <tr><td>id</td><td>BIGINT</td><td>PK</td><td>记录唯一标识，自增</td></tr>
+  <tr><td>approval_id</td><td>BIGINT</td><td>FK（逻辑）</td><td>关联工单 ID</td></tr>
+  <tr><td>approver_id</td><td>BIGINT</td><td>FK（逻辑）</td><td>操作人 ID</td></tr>
+  <tr><td>action</td><td>TINYINT</td><td></td><td>操作类型：0 提交，1 同意，2 拒绝，3 重新编辑，4 撤销</td></tr>
+  <tr><td>comment</td><td>VARCHAR(500)</td><td></td><td>审批意见</td></tr>
+  <tr><td>create_time</td><td>DATETIME</td><td></td><td>操作时间</td></tr>
+  <tr><td>approval_type</td><td>VARCHAR(50)</td><td></td><td>审批类型编码：DIRECT / PROXY_ADMIN / PROXY_MANAGER</td></tr>
+  <tr><td>is_proxy</td><td>TINYINT</td><td></td><td>是否代审批：0 否，1 是</td></tr>
+  <tr><td>original_approver_id</td><td>BIGINT</td><td></td><td>原指定审批人 ID</td></tr>
+  <tr><td>proxy_reason</td><td>VARCHAR(100)</td><td></td><td>代审批原因</td></tr>
+</table>
+<p>索引设计：idx_approval_id、idx_approver_id、idx_create_time 加速按工单、操作人及时间的查询。</p>
+
+<p><strong>（6）表单模板表（oa_form_template）</strong></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+  <tr style="background-color:#f2f2f2;">
+    <th style="text-align:left;">字段名</th>
+    <th style="text-align:left;">类型</th>
+    <th style="text-align:left;">主/外键</th>
+    <th style="text-align:left;">说明</th>
+  </tr>
+  <tr><td>id</td><td>BIGINT</td><td>PK</td><td>模板唯一标识，自增</td></tr>
+  <tr><td>name</td><td>VARCHAR(100)</td><td></td><td>表单名称</td></tr>
+  <tr><td>code</td><td>VARCHAR(50)</td><td>UK</td><td>表单编码，唯一</td></tr>
+  <tr><td>description</td><td>VARCHAR(500)</td><td></td><td>表单描述</td></tr>
+  <tr><td>fields_config</td><td>JSON</td><td></td><td>字段配置，JSON 数组格式</td></tr>
+  <tr><td>flow_config</td><td>VARCHAR(50)</td><td></td><td>流程配置标识</td></tr>
+  <tr><td>status</td><td>TINYINT</td><td></td><td>状态：0 禁用，1 启用</td></tr>
+  <tr><td>create_time</td><td>DATETIME</td><td></td><td>创建时间</td></tr>
+</table>
+
+<p><strong>（7）审批规则表（oa_approver_rule）</strong></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+  <tr style="background-color:#f2f2f2;">
+    <th style="text-align:left;">字段名</th>
+    <th style="text-align:left;">类型</th>
+    <th style="text-align:left;">主/外键</th>
+    <th style="text-align:left;">说明</th>
+  </tr>
+  <tr><td>id</td><td>BIGINT</td><td>PK</td><td>规则唯一标识，自增</td></tr>
+  <tr><td>name</td><td>VARCHAR(100)</td><td></td><td>规则名称</td></tr>
+  <tr><td>strategy_type</td><td>TINYINT</td><td></td><td>策略类型：1 按部门角色，3 固定人员</td></tr>
+  <tr><td>match_conditions</td><td>JSON</td><td></td><td>匹配条件（部门、类型、角色）</td></tr>
+  <tr><td>approver_type</td><td>TINYINT</td><td></td><td>审批人类型：1 指定用户，2 指定角色</td></tr>
+  <tr><td>approver_value</td><td>VARCHAR(500)</td><td></td><td>审批人值，JSON 格式</td></tr>
+  <tr><td>priority</td><td>INT</td><td></td><td>优先级，数字越小越优先</td></tr>
+  <tr><td>status</td><td>TINYINT</td><td></td><td>状态：0 禁用，1 启用</td></tr>
+  <tr><td>description</td><td>VARCHAR(500)</td><td></td><td>规则描述</td></tr>
+  <tr><td>scope_type</td><td>TINYINT</td><td></td><td>作用范围：1 全局，2 指定部门，3 指定角色</td></tr>
+  <tr><td>create_time</td><td>DATETIME</td><td></td><td>创建时间</td></tr>
+  <tr><td>update_time</td><td>DATETIME</td><td></td><td>更新时间</td></tr>
+</table>
+<p>索引设计：idx_strategy_type、idx_status、idx_priority 加速规则筛选与排序。</p>
+
+<p><strong>（8）刷新令牌表（refresh_token）</strong></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+  <tr style="background-color:#f2f2f2;">
+    <th style="text-align:left;">字段名</th>
+    <th style="text-align:left;">类型</th>
+    <th style="text-align:left;">主/外键</th>
+    <th style="text-align:left;">说明</th>
+  </tr>
+  <tr><td>id</td><td>BIGINT</td><td>PK</td><td>记录唯一标识，自增</td></tr>
+  <tr><td>user_id</td><td>BIGINT</td><td>FK（逻辑）</td><td>用户 ID</td></tr>
+  <tr><td>token</td><td>VARCHAR(500)</td><td></td><td>Refresh Token 字符串</td></tr>
+  <tr><td>expires_at</td><td>DATETIME</td><td></td><td>过期时间</td></tr>
+  <tr><td>created_at</td><td>DATETIME</td><td></td><td>创建时间</td></tr>
+  <tr><td>revoked</td><td>TINYINT</td><td></td><td>是否已撤销：0 有效，1 已撤销</td></tr>
+</table>
